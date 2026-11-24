@@ -1,0 +1,13 @@
+{
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": true,
+  "showOrphans": true,
+  "colorGroups": [
+    {"query": "path:wiki/papers", "color": {"a": 1, "rgb": 9133302}},
+    {"query": "path:wiki/concepts", "color": {"a": 1, "rgb": 1357990}},
+    {"query": "path:wiki/groups", "color": {"a": 1, "rgb": 16096779}},
+    {"query": "path:wiki/answers", "color": {"a": 1, "rgb": 6583435}}
+  ],
+  "search": "path:wiki"
+}

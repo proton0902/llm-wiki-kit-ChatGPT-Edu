@@ -1,0 +1,7 @@
+# 이 위키를 GitHub 등에 올릴 때 논문 원문(저작권)과 개인 메모가 올라가지 않도록 기본 제외합니다.
+raw/**/*.pdf
+raw/notes/*
+!raw/notes/.gitkeep
+# Obsidian 개인 화면 상태
+.obsidian/workspace*.json
+.DS_Store
