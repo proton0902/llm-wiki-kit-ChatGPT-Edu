@@ -1,0 +1,7 @@
+# 위키를 공유할 때 강의자료·교재 원본(저작권)과 개인 필기·과제가 올라가지 않도록 기본 제외합니다.
+raw/**
+!raw/**/
+!raw/**/.gitkeep
+# Obsidian 개인 화면 상태
+.obsidian/workspace*.json
+.DS_Store

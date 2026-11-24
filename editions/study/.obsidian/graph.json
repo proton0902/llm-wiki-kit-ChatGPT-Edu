@@ -1,0 +1,15 @@
+{
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": true,
+  "showOrphans": true,
+  "colorGroups": [
+    {"query": "path:wiki/courses", "color": {"a": 1, "rgb": 15680580}},
+    {"query": "path:wiki/lectures", "color": {"a": 1, "rgb": 3900150}},
+    {"query": "path:wiki/chapters", "color": {"a": 1, "rgb": 9133302}},
+    {"query": "path:wiki/concepts", "color": {"a": 1, "rgb": 1357990}},
+    {"query": "path:wiki/problems", "color": {"a": 1, "rgb": 16096779}},
+    {"query": "path:wiki/review", "color": {"a": 1, "rgb": 6583435}}
+  ],
+  "search": "path:wiki"
+}

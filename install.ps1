@@ -1,47 +1,105 @@
 # LLM Wiki Kit 설치 스크립트 (Windows PowerShell)
-# 사용법:  irm https://raw.githubusercontent.com/proton0902/llm-wiki-kit-ChatGPT-Edu/main/install.ps1 | iex
-# 다른 폴더에 설치:  $env:LLM_WIKI_DIR="D:\MyWiki"; irm .../install.ps1 | iex
+#
+#   연구자용:  irm https://raw.githubusercontent.com/proton0902/llm-wiki-kit-ChatGPT-Edu/main/install.ps1 | iex
+#   학습용:    irm https://raw.githubusercontent.com/proton0902/llm-wiki-kit-ChatGPT-Edu/main/install-study.ps1 | iex
+#
+# 환경 변수로 미리 정할 수 있음:  $env:LLM_WIKI_EDITION = "research" | "study"
+#                                 $env:LLM_WIKI_DIR = "D:\MyWiki"
+#                                 $env:LLM_WIKI_OBSIDIAN = "yes" | "no"
+& {
 $ErrorActionPreference = "Stop"
 $Owner = "proton0902"; $Repo = "llm-wiki-kit-ChatGPT-Edu"; $Branch = "main"
-$Dest = if ($env:LLM_WIKI_DIR) { $env:LLM_WIKI_DIR } else { Join-Path $HOME "LLM-Wiki" }
+$Edition = $env:LLM_WIKI_EDITION
+$Obsidian = $env:LLM_WIKI_OBSIDIAN
+$Interactive = -not $env:LLM_WIKI_NONINTERACTIVE
 
-function Fail($msg) { Write-Host "`n[설치 중단] $msg" -ForegroundColor Red; return }
+function Fail($msg) { Write-Host "`n[설치 중단] $msg" -ForegroundColor Red }
+function Ask($prompt, $default) {
+  if (-not $Interactive) { return $default }
+  try { $a = Read-Host $prompt } catch { $a = "" }
+  if ([string]::IsNullOrWhiteSpace($a)) { return $default } else { return $a.Trim() }
+}
 
 Write-Host "`nLLM Wiki Kit 설치를 시작합니다."
+if (-not $Edition) {
+  Write-Host ""
+  Write-Host "  1) 연구자용 - 논문 정리, 선행연구 비교, 연구 동향"
+  Write-Host "  2) 학습용   - 강의자료·교재 정리, 개념 카드, 퀴즈, 시험 대비"
+  $Edition = if ((Ask "어떤 판을 설치할까요? [1/2, 기본 1]" "1") -match '^(2|s|study|학습)') { "study" } else { "research" }
+}
+if ($Edition -notin @("research", "study")) { Fail "판 이름은 research 또는 study 입니다."; return }
+if ($Edition -eq "study") { $Label = "학습용"; $DefaultDest = Join-Path $HOME "Study-Wiki" }
+else { $Label = "연구자용"; $DefaultDest = Join-Path $HOME "LLM-Wiki" }
+$Dest = if ($env:LLM_WIKI_DIR) { $env:LLM_WIKI_DIR } else { $DefaultDest }
+Write-Host "판: $Label"
 Write-Host "설치 위치: $Dest"
 
 if ((Test-Path $Dest) -and (Get-ChildItem -Force $Dest | Select-Object -First 1)) {
-  Fail "'$Dest' 폴더가 이미 있고 비어 있지 않습니다. `$env:LLM_WIKI_DIR 로 다른 위치를 지정하세요."
-  return
+  Fail "'$Dest' 폴더가 이미 있고 비어 있지 않습니다. `$env:LLM_WIKI_DIR 로 다른 위치를 지정하세요."; return
 }
 
 $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("llmwiki-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 try {
-  if ($env:LLM_WIKI_SRC) {
-    $Src = $env:LLM_WIKI_SRC
-  } else {
+  if ($env:LLM_WIKI_SRC) { $Src = $env:LLM_WIKI_SRC }
+  else {
     $Zip = Join-Path $Tmp "kit.zip"
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/$Owner/$Repo/zip/refs/heads/$Branch" -OutFile $Zip
     Expand-Archive -Path $Zip -DestinationPath $Tmp
     $Src = (Get-ChildItem -Directory $Tmp | Select-Object -First 1).FullName
   }
-  if (-not (Test-Path (Join-Path $Src "AGENTS.md"))) { Fail "템플릿 파일(AGENTS.md)을 찾지 못했습니다."; return }
-
+  $EDir = Join-Path $Src "editions\$Edition"
+  if (-not (Test-Path (Join-Path $EDir "AGENTS.md"))) { Fail "템플릿 파일($Edition\AGENTS.md)을 찾지 못했습니다."; return }
   New-Item -ItemType Directory -Force -Path $Dest | Out-Null
-  $Exclude = @("install.sh", "install.ps1", "docs", ".git", ".github", "tests")
-  Get-ChildItem -Force $Src | Where-Object { $Exclude -notcontains $_.Name } |
-    Copy-Item -Destination $Dest -Recurse -Force
-
+  Get-ChildItem -Force $EDir | Copy-Item -Destination $Dest -Recurse -Force
   $Log = Join-Path $Dest "wiki\log.md"
   if (Test-Path $Log) {
     $Today = Get-Date -Format "yyyy-MM-dd"
     $Text = [IO.File]::ReadAllText($Log, [Text.Encoding]::UTF8) -replace "(?m)^- 설치 \| install \|", "- $Today | install |"
     [IO.File]::WriteAllText($Log, $Text, (New-Object Text.UTF8Encoding $false))
   }
-} finally {
-  Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
+} finally { Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue }
+
+# Obsidian (선택)
+$ObsExe = @("$env:LOCALAPPDATA\Programs\Obsidian\Obsidian.exe", "$env:LOCALAPPDATA\Obsidian\Obsidian.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $Obsidian) {
+  if ($ObsExe) { $q = "Obsidian 보관소로 등록하고 바로 열까요? [Y/n]"; $def = "y" }
+  else { $q = "위키를 그래프로 보는 Obsidian(무료)을 설치할까요? [y/N]"; $def = "n" }
+  $Obsidian = if ((Ask $q $def) -match '^(y|yes|예|ㅇ)') { "yes" } else { "no" }
+}
+if ($Obsidian -eq "yes") {
+  Write-Host "`nObsidian 설정"
+  if (-not $ObsExe) {
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+      Write-Host "  winget으로 Obsidian을 설치합니다..."
+      winget install -e --id Obsidian.Obsidian
+      $ObsExe = @("$env:LOCALAPPDATA\Programs\Obsidian\Obsidian.exe", "$env:LOCALAPPDATA\Obsidian\Obsidian.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+    }
+    if (-not $ObsExe) { Write-Host "  [안내] https://obsidian.md/download 에서 Obsidian을 받아 설치해 주세요." }
+  }
+  if (Get-Process Obsidian -ErrorAction SilentlyContinue) {
+    Write-Host "  [안내] Obsidian이 실행 중이라 자동 등록을 건너뜁니다. Obsidian에서 '폴더를 보관소로 열기'로 여세요."
+  } else {
+    try {
+      $Cfg = Join-Path $env:APPDATA "obsidian\obsidian.json"
+      if (Test-Path $Cfg) { $Data = Get-Content $Cfg -Raw -Encoding UTF8 | ConvertFrom-Json; Copy-Item $Cfg "$Cfg.bak" -Force }
+      else { New-Item -ItemType Directory -Force -Path (Split-Path $Cfg) | Out-Null; $Data = [pscustomobject]@{} }
+      if (-not $Data.vaults) { $Data | Add-Member -NotePropertyName vaults -NotePropertyValue ([pscustomobject]@{}) -Force }
+      $Full = (Resolve-Path $Dest).Path
+      $Exists = $Data.vaults.PSObject.Properties | Where-Object { $_.Value.path -eq $Full }
+      if (-not $Exists) {
+        foreach ($p in $Data.vaults.PSObject.Properties) { $p.Value.PSObject.Properties.Remove("open") }
+        $Id = -join ((1..16) | ForEach-Object { "{0:x}" -f (Get-Random -Maximum 16) })
+        $Data.vaults | Add-Member -NotePropertyName $Id -NotePropertyValue ([pscustomobject]@{ path = $Full; ts = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); open = $true })
+      }
+      [IO.File]::WriteAllText($Cfg, ($Data | ConvertTo-Json -Depth 10 -Compress), (New-Object Text.UTF8Encoding $false))
+      Write-Host "  [OK] Obsidian 보관소로 등록했습니다."
+      if ($ObsExe -and -not $env:LLM_WIKI_NO_OPEN) {
+        Start-Process ("obsidian://open?path=" + [uri]::EscapeDataString((Join-Path $Full "wiki\index.md")))
+      }
+    } catch { Write-Host "  [안내] 자동 등록에 실패했습니다. Obsidian에서 '폴더를 보관소로 열기'로 여세요." }
+  }
 }
 
 Write-Host "`n환경 점검"
@@ -55,19 +113,27 @@ if ($py) {
 if (Get-Command codex -ErrorAction SilentlyContinue) { Write-Host "  [OK] Codex CLI" }
 else { Write-Host "  [안내] Codex CLI가 없습니다. ChatGPT 데스크톱 앱의 Codex나 VS Code 확장으로도 쓸 수 있습니다." }
 
+if ($Edition -eq "study") {
+  $Put = "강의자료는 $Dest\raw\lectures\<과목>\ , 교재는 $Dest\raw\textbooks\"
+  $Next = "`$wiki-quiz      <- 퀴즈로 복습,   `$wiki-exam <- 시험 대비 요약"
+} else {
+  $Put = "논문 PDF는 $Dest\raw\papers\"
+  $Next = "`$wiki-compare   <- 선행연구 비교표,   `$wiki-novelty <- 아이디어 중복 확인"
+}
 Write-Host @"
 
-설치 완료: $Dest
+설치 완료 ($Label): $Dest
 
 다음 단계 (3분)
-  1. 논문 PDF를 넣습니다:   $Dest\raw\papers\
-  2. Codex에서 이 폴더를 엽니다 (ChatGPT 데스크톱 앱 Codex 또는 VS Code 확장).
-     학교 계정(ChatGPT Edu)으로 로그인하세요.
+  1. 자료를 넣습니다: $Put
+  2. Codex에서 이 폴더를 엽니다 (ChatGPT 데스크톱 앱 Codex 또는 VS Code 확장). 학교 ChatGPT Edu 계정으로 로그인.
   3. Codex에 입력합니다:
-       `$wiki-setup     <- 내 연구 분야에 맞게 설정 (처음 한 번)
-       `$wiki-ingest    <- raw에 넣은 논문 소화
+       `$wiki-setup     <- 처음 한 번 맞춤 설정
+       `$wiki-ingest    <- 넣은 자료 소화
+       $Next
      그다음엔 그냥 질문하면 됩니다.
-  4. (선택) Obsidian > "폴더를 보관소로 열기" > $Dest
+  4. Obsidian 사용법: $Dest\Obsidian 사용법.md
 
 "@
-if (-not $env:LLM_WIKI_NO_OPEN) { Start-Process explorer.exe $Dest }
+if (-not $env:LLM_WIKI_NO_OPEN -and $Obsidian -ne "yes") { Start-Process explorer.exe $Dest }
+}

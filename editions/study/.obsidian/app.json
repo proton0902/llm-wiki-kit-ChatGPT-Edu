@@ -1,0 +1,7 @@
+{
+  "alwaysUpdateLinks": true,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "raw/notes",
+  "attachmentFolderPath": "raw/web",
+  "userIgnoreFilters": ["eval/", "scripts/"]
+}
