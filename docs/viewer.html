@@ -169,7 +169,8 @@ main.view{padding:28px clamp(16px,4vw,48px) 64px;min-width:0}
   <div class="actions">
     <button class="btn primary" id="openBtn" type="button">위키 폴더 열기</button>
     <button class="btn" id="resumeBtn" type="button" hidden></button>
-    <button class="btn" id="demoBtn" type="button">예시 위키로 체험하기</button>
+    <button class="btn" id="demoBtn" type="button">학습용 예시 위키 보기</button>
+    <button class="btn" id="demoRBtn" type="button">연구자용 예시 위키 보기</button>
     <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
   </div>
   <p class="hint">설치할 때 만든 폴더(예: 사용자 폴더 안의 <code>Study-Wiki</code>)를 고르세요. 브라우저가 "파일을 업로드할까요?"라고 물어도 실제로는 어디에도 올라가지 않고 이 화면에서만 읽습니다.</p>
@@ -385,6 +386,29 @@ function loadDemo(){
   buildIndex(); showApp();
 }
 
+function loadDemoResearch(){
+  var D = {
+"index.md":"---\ntype: index\n---\n# 위키 목차\n\n> 가상의 예시 위키입니다. 논문 이름, 수치, 연구실은 모두 지어낸 것입니다.\n\n## 시작하기\n- [[log]] — 작업 일지\n- [[my-research]] — 내 연구 한 장 요약 (비공개)\n\n## 주제별\n### 저전력 수신기\n- [[papers/kim2025-저전력수신기]] — 21 µW 수신기, 인체 팬텀 측정\n- [[papers/lee2025-웨이크업수신기]] — 반송파에서 클록 추출 (프리프린트)\n- [[papers/park2024-수신기-시뮬레이션]] — 시뮬레이션만 보고\n\n## 개념\n- [[concepts/웨이크업-수신기]] — 평소엔 잠들어 있다가 신호가 오면 깨우는 회로\n- [[concepts/반송파-클록-복원]] — 받은 반송파에서 클록을 얻는 방법\n\n## 지표·FoM\n- [[metrics/에너지-효율]] — 비트당 에너지 (pJ/b)\n\n## 연구 그룹\n- [[groups/예시대학-집적회로연구실]]\n\n## 열린 연구 질문\n- [[questions/인체-채널-측정-조건]] — 열림\n\n## 저장한 답변·비교표\n- [[answers/비교표-저전력수신기]]\n",
+"log.md":"---\ntype: log\n---\n# 작업 일지\n\n- "+addDays(-12)+" | install | LLM Wiki Kit | 템플릿 설치 완료\n- "+addDays(-12)+" | setup | 저전력 수신기 | 분야, 지표, 측정 조건 설정\n- "+addDays(-6)+" | ingest | park2024 | 논문 페이지 1, 개념 1\n- "+addDays(-4)+" | ingest | kim2025, lee2025 | 논문 페이지 2, 지표 1, 그룹 1, 질문 1\n- "+addDays(-2)+" | compare | 저전력 수신기 | 논문 3편 × 지표 4개, 원문 대조 2칸\n- "+addDays(-1)+" | novelty | 반송파 클록 공유 | 위키 범위 안에서 같은 구성 없음\n",
+"my-research.md":"---\ntype: my-research\nprivate: true\n---\n# 내 연구 한 장 요약 (비공개)\n\n> 이 페이지는 공유할 때 빠집니다.\n\n- 목표: 업링크·다운링크가 같은 클록을 쓰는 저전력 수신기\n- 목표치: 전력 20 µW 이하, 인체 채널에서 측정\n- 관련 아이디어: [[ideas/반송파-클록-공유]]\n",
+"papers/kim2025-저전력수신기.md":"---\ntype: paper\nyear: 2025\nvenue: 예시학회\nrelation: compare\ntags: [paper, receiver]\n---\n# Kim 2025: 21 µW 저전력 수신기\n\n**한 줄 요약**: 인체 팬텀에서 21 µW로 동작하는 수신기를 측정으로 보였다 (p.1).\n\n## 주요 수치\n| 지표 | 값 | 조건 | 위치 |\n| --- | --- | --- | --- |\n| 전력 | 21 µW (meas.) | 1.0 V | Tab.II, p.6 |\n| 데이터율 | 1 Mb/s (meas.) | 인체 팬텀 | Tab.II, p.6 |\n| 에너지 효율 | 21 pJ/b | 위 두 값으로 계산 | [[metrics/에너지-효율]] |\n\n## 저자 주장과 해석\n- `[저자 주장]` \"인체 채널에서 가장 낮은 전력\" (p.1, 2025년 기준)\n- `[해석]` 측정 거리가 짧아 [[papers/lee2025-웨이크업수신기]]와 바로 비교하기 어렵다.\n\n## 관련\n- [[concepts/웨이크업-수신기]] · [[groups/예시대학-집적회로연구실]] · [[questions/인체-채널-측정-조건]]\n",
+"papers/lee2025-웨이크업수신기.md":"---\ntype: paper\nyear: 2025\nvenue: arXiv\npreprint: true\ntags: [paper, receiver, preprint]\n---\n# Lee 2025: 반송파 클록 추출 웨이크업 수신기 (프리프린트)\n\n**한 줄 요약**: 받은 반송파에서 클록을 얻어 별도 발진기를 없앴다 (Fig.3, p.3).\n\n> [!warning] 불일치\n> 본문은 38 µW (p.5), 표는 41 µW (Tab.I, p.4). 두 값을 모두 적어 둔다.\n\n## 주요 수치\n| 지표 | 값 | 조건 | 위치 |\n| --- | --- | --- | --- |\n| 전력 | 38 µW (meas.) | 0.8 V, 공기 중 | p.5 |\n\n## 관련\n- [[concepts/반송파-클록-복원]] · [[concepts/웨이크업-수신기]]\n",
+"papers/park2024-수신기-시뮬레이션.md":"---\ntype: paper\nyear: 2024\nvenue: 예시저널\ntags: [paper, receiver]\n---\n# Park 2024: 수신기 구조 시뮬레이션\n\n**한 줄 요약**: 새 수신기 구조를 시뮬레이션으로만 보였다 (p.2).\n\n## 주요 수치\n| 지표 | 값 | 조건 | 위치 |\n| --- | --- | --- | --- |\n| 전력 | 44 µW (sim.) | 조건 미기재 | Fig.7 |\n\n## 관련\n- [[concepts/웨이크업-수신기]]\n",
+"concepts/웨이크업-수신기.md":"---\ntype: concept\ntags: [concept]\n---\n# 웨이크업 수신기\n\n**한 줄 정의**: 평소에는 아주 적은 전력으로 기다리다가 신호가 오면 주 수신기를 깨우는 회로 ([[papers/kim2025-저전력수신기]], p.2)\n\n## 이 위키의 논문\n- [[papers/kim2025-저전력수신기]], [[papers/lee2025-웨이크업수신기]], [[papers/park2024-수신기-시뮬레이션]]\n",
+"concepts/반송파-클록-복원.md":"---\ntype: concept\ntags: [concept]\n---\n# 반송파 클록 복원\n\n**한 줄 정의**: 받은 반송파를 나눠 수신기 클록으로 쓰는 방법 ([[papers/lee2025-웨이크업수신기]], Fig.3, p.3)\n",
+"metrics/에너지-효율.md":"---\ntype: metric\ntags: [metric]\n---\n# 에너지 효율 (pJ/b)\n\n**정의**: 전력 ÷ 데이터율. 낮을수록 좋다.\n\n> [!note] 정의 차이\n> 어떤 논문은 송신 전력까지 넣고, 어떤 논문은 수신기만 넣는다. 같은 이름이어도 비교 전에 확인한다.\n",
+"groups/예시대학-집적회로연구실.md":"---\ntype: group\ntags: [group]\n---\n# 예시대학 집적회로연구실 (가상)\n\n- 대표 논문: [[papers/kim2025-저전력수신기]]\n",
+"questions/인체-채널-측정-조건.md":"---\ntype: question\nstatus: 열림\ntags: [question]\n---\n# 인체 채널 측정 조건은 어떻게 맞춰야 비교가 될까?\n\n- 논문마다 팬텀, 거리, 전극이 다르다 ([[papers/kim2025-저전력수신기]] p.6, [[papers/lee2025-웨이크업수신기]] p.5)\n- 아직 표준 조건을 제시한 논문이 위키에 없다.\n",
+"ideas/반송파-클록-공유.md":"---\ntype: idea\nprivate: true\n---\n# 반송파 클록을 업링크에도 공유 (비공개)\n\n- `$wiki-novelty` 결과: 위키 범위 안에서는 같은 구성을 찾지 못함. 가장 가까운 것은 [[papers/lee2025-웨이크업수신기]] (다운링크 전용).\n- 위키 밖 문헌은 확인하지 않았음.\n",
+"answers/비교표-저전력수신기.md":"---\ntype: answer\ntags: [answer, compare]\n---\n# 비교표: 저전력 수신기\n\n| 지표 | Kim '25 | Lee '25* | Park '24 |\n| --- | --- | --- | --- |\n| 전력 (µW) | 21 (Tab.II) | 38 (p.5) | 44 (sim.) (Fig.7) |\n| 측정 조건 | 인체 팬텀, 1.0 V | 공기 중, 0.8 V | 조건 미기재 |\n\n\\* 프리프린트\n\n**이 표로 말할 수 없는 것**: 측정 조건이 달라 순위를 매길 수 없다.\n\n출처 페이지: [[papers/kim2025-저전력수신기]] · [[papers/lee2025-웨이크업수신기]] · [[papers/park2024-수신기-시뮬레이션]]\n"
+  };
+  W.files = new Map();
+  var now = Date.now(), i = 0;
+  Object.keys(D).forEach(function(p){ addFile(p, D[p], now - (i++)*3600e3*5); });
+  W.name = "LLM-Wiki (예시)"; W.demo = true; W.handle = null;
+  buildIndex(); showApp();
+}
+
 /* ---------- views ---------- */
 function showApp(){
   $("landing").hidden = true; $("app").hidden = false;
@@ -563,6 +587,7 @@ async function openPicker(){
 /* ---------- events ---------- */
 $("openBtn").addEventListener("click", openPicker);
 $("demoBtn").addEventListener("click", function(){ location.hash = "#/"; loadDemo(); });
+$("demoRBtn").addEventListener("click", function(){ location.hash = "#/"; loadDemoResearch(); });
 $("dirInput").addEventListener("change", async function(){ try{ W.handle=null; await loadFromInput(this.files); } catch(e){ showErr(e); } this.value=""; });
 $("reloadBtn").addEventListener("click", async function(){ if (!W.handle) return; try{ await loadFromHandle(W.handle); }catch(e){ alertless(e); } });
 $("closeBtn").addEventListener("click", function(){ W.files=new Map(); W.handle=null; $("app").hidden=true; $("landing").hidden=false; ["menuBtn","closeBtn","reloadBtn","demoFlag"].forEach(function(id){ $(id).hidden=true; }); $("vaultName").textContent=""; document.title="LLM Wiki 뷰어"; history.replaceState(null,"",location.pathname); initResume(); });
@@ -592,7 +617,7 @@ async function initResume(){
   };
 }
 initResume();
-if (/[?&]demo\b/.test(location.search)) loadDemo();
+if (/[?&]demo=research\b/.test(location.search)) loadDemoResearch(); else if (/[?&]demo\b/.test(location.search)) loadDemo();
 })();
 </script>
 </body>
