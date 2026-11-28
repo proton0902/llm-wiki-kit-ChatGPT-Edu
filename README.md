@@ -5,6 +5,7 @@ ChatGPT Edu의 **Codex**가 논문, 강의자료, 교재를 읽고, 요약하고
 [Andrej Karpathy의 LLM Wiki 아이디어](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)를 바로 쓸 수 있게 만든 템플릿입니다.
 
 **👉 클릭해서 보는 안내 사이트: https://proton0902.github.io/llm-wiki-kit-ChatGPT-Edu/** (설치 명령 복사, 3분 시작, 예시 대화, FAQ)
+**👉 내 위키를 브라우저에서 보기: https://proton0902.github.io/llm-wiki-kit-ChatGPT-Edu/viewer.html** (폴더를 골라 읽기 전용으로 열기, 파일은 PC 밖으로 나가지 않음)
 
 ## 두 가지 판
 

@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Wiki 뷰어</title>
+<meta name="description" content="내 PC의 LLM Wiki 폴더를 브라우저에서 읽기 전용으로 열어 보는 뷰어. 파일은 PC 밖으로 나가지 않습니다.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f6f2; --surface:#ffffff; --surface-2:#efede6; --text:#1d1c1a; --muted:#625f58;
+  --line:#dcd8cd; --accent:#2f5d50; --accent-soft:#dde9e4; --accent-text:#ffffff;
+  --code-bg:#f0eee8; --warn:#8a5a00; --warn-soft:#fbefd6; --bad:#a33a2b; --bad-soft:#f8e3df;
+  --info:#2f5d8a; --info-soft:#e1ebf5; --ok:#2f7a4f;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151716; --surface:#1d201f; --surface-2:#262a28; --text:#ebeae6; --muted:#a6a39b;
+    --line:#343835; --accent:#7fbfa9; --accent-soft:#233531; --accent-text:#0f1412;
+    --code-bg:#262a28; --warn:#f0c063; --warn-soft:#3a2f17; --bad:#f08f80; --bad-soft:#3d221e;
+    --info:#8fb8e3; --info-soft:#1e2a37; --ok:#7fcf9f;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151716; --surface:#1d201f; --surface-2:#262a28; --text:#ebeae6; --muted:#a6a39b;
+  --line:#343835; --accent:#7fbfa9; --accent-soft:#233531; --accent-text:#0f1412;
+  --code-bg:#262a28; --warn:#f0c063; --warn-soft:#3a2f17; --bad:#f08f80; --bad-soft:#3d221e;
+  --info:#8fb8e3; --info-soft:#1e2a37; --ok:#7fcf9f;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.7 "Noto Sans KR",system-ui,-apple-system,sans-serif;word-break:keep-all;overflow-wrap:anywhere}
+a{color:var(--accent)}
+code,pre,kbd{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace}
+button{font:inherit}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:10px;text-decoration:none;font-weight:500;border:1px solid var(--line);color:var(--text);background:var(--surface);cursor:pointer;font-size:15px}
+.btn.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+.btn.small{padding:5px 10px;font-size:13px;border-radius:8px;white-space:nowrap}
+header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+header.top .bar{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px}
+.brand{font-weight:700;text-decoration:none;color:var(--text);white-space:nowrap}
+.brand span{color:var(--muted);font-weight:400}
+.spacer{flex:1}
+.vault{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:30vw}
+#menuBtn{display:none}
+
+/* landing */
+.landing{max-width:760px;margin:0 auto;padding:48px 16px}
+.landing h1{font-size:clamp(26px,5vw,36px);line-height:1.3;margin:0 0 12px}
+.landing .lead{color:var(--muted);font-size:17px}
+.landing .actions{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.privacy{display:grid;gap:10px;margin-top:28px}
+.privacy .card{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:14px 16px}
+.privacy .ic{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:14px}
+.privacy p{margin:0;font-size:15px;color:var(--muted)}
+.privacy b{color:var(--text)}
+.hint{font-size:14px;color:var(--muted)}
+.err{background:var(--bad-soft);color:var(--text);border-left:4px solid var(--bad);padding:10px 14px;border-radius:8px;font-size:14px;margin-top:12px}
+
+/* app layout */
+.app{display:grid;grid-template-columns:290px 1fr;min-height:calc(100vh - 57px)}
+aside{border-right:1px solid var(--line);background:var(--surface);padding:14px 12px;position:sticky;top:57px;height:calc(100vh - 57px);overflow:auto}
+.search{width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:15px}
+.nav-home{display:block;margin:10px 0 4px;padding:6px 10px;border-radius:8px;text-decoration:none;color:var(--text);font-weight:500}
+.nav-home.on,.pg.on{background:var(--accent-soft);color:var(--accent)}
+details.grp{margin:2px 0}
+details.grp summary{cursor:pointer;padding:5px 8px;border-radius:8px;font-size:14px;font-weight:500;color:var(--muted);list-style:none;display:flex;justify-content:space-between}
+details.grp summary::-webkit-details-marker{display:none}
+details.grp summary::before{content:"▸";margin-right:6px;transition:transform .15s;display:inline-block}
+details.grp[open] summary::before{transform:rotate(90deg)}
+details.grp summary .lbl{flex:1}
+details.grp summary .ct{font-size:12px;font-family:"JetBrains Mono",monospace}
+.pg{display:block;padding:4px 10px 4px 26px;border-radius:8px;text-decoration:none;color:var(--text);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg:hover{background:var(--surface-2)}
+.res{display:block;padding:8px 10px;border-radius:8px;text-decoration:none;color:var(--text);border-bottom:1px solid var(--line)}
+.res:hover{background:var(--surface-2)}
+.res .t{font-weight:500;font-size:14px}
+.res .p{font-size:12px;color:var(--muted);font-family:"JetBrains Mono",monospace}
+.res .s{font-size:13px;color:var(--muted)}
+mark{background:var(--warn-soft);color:inherit;padding:0 1px;border-radius:2px}
+main.view{padding:28px clamp(16px,4vw,48px) 64px;min-width:0}
+.inner{max-width:820px}
+
+/* dashboard */
+.dash h1{margin:0 0 4px;font-size:clamp(24px,4vw,32px)}
+.dash .sub{color:var(--muted);margin:0 0 20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-decoration:none;color:var(--text)}
+.stat .v{font-size:26px;font-weight:700;line-height:1.2}
+.stat .k{font-size:13px;color:var(--muted)}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.panel h2{font-size:16px;margin:0 0 10px}
+.panel ul{list-style:none;margin:0;padding:0}
+.panel li{padding:6px 0;border-bottom:1px solid var(--line);font-size:14px;display:flex;gap:8px;justify-content:space-between;align-items:baseline}
+.panel li:last-child{border-bottom:0}
+.panel .meta{color:var(--muted);font-size:12px;white-space:nowrap;font-family:"JetBrains Mono",monospace}
+.panel .empty{color:var(--muted);font-size:14px}
+.mbar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--surface-2);margin:8px 0}
+.mbar span{display:block;height:100%}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.due{color:var(--bad);font-weight:500}
+
+/* page */
+.crumb{font-size:13px;color:var(--muted);font-family:"JetBrains Mono",monospace;margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px}
+.badge{font-size:12px;padding:2px 9px;border-radius:99px;background:var(--surface-2);color:var(--muted)}
+.badge.private{background:var(--bad-soft);color:var(--bad);font-weight:500}
+.badge.m-new{background:var(--surface-2)} .badge.m-learning{background:var(--warn-soft);color:var(--warn)} .badge.m-mastered{background:var(--accent-soft);color:var(--accent)}
+.md{font-size:16px}
+.md h1{font-size:clamp(24px,4vw,30px);line-height:1.3;margin:0 0 14px}
+.md h2{font-size:21px;margin:28px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.md h3{font-size:17px;margin:20px 0 6px}
+.md code{background:var(--code-bg);padding:.1em .35em;border-radius:4px;font-size:.88em}
+.md pre{background:var(--code-bg);padding:12px 14px;border-radius:10px;overflow:auto;font-size:13px}
+.md pre code{background:none;padding:0}
+.md table{border-collapse:collapse;font-size:14px;margin:12px 0;display:block;overflow-x:auto;max-width:100%}
+.md th,.md td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+.md th{background:var(--surface-2)}
+.md blockquote{margin:12px 0;padding:8px 14px;border-left:4px solid var(--line);color:var(--muted);background:var(--surface);border-radius:0 8px 8px 0}
+.md blockquote p{margin:4px 0}
+.md blockquote.callout{color:var(--text)}
+.md .callout-title{font-weight:700;display:block;margin-bottom:2px}
+.md blockquote.c-warning,.md blockquote.c-caution{border-left-color:var(--warn);background:var(--warn-soft)}
+.md blockquote.c-danger,.md blockquote.c-bug{border-left-color:var(--bad);background:var(--bad-soft)}
+.md blockquote.c-note,.md blockquote.c-info,.md blockquote.c-abstract{border-left-color:var(--info);background:var(--info-soft)}
+.md blockquote.c-tip,.md blockquote.c-success{border-left-color:var(--accent);background:var(--accent-soft)}
+.md img{max-width:100%}
+.md a.wl{text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+.md a.wl.missing{color:var(--bad);border-bottom-style:dashed}
+.backlinks{margin-top:36px;padding-top:16px;border-top:1px solid var(--line)}
+.backlinks h2{font-size:15px;margin:0 0 8px;color:var(--muted)}
+.backlinks a{display:inline-block;margin:0 10px 6px 0;font-size:14px}
+.pagefoot{margin-top:24px;font-size:13px;color:var(--muted)}
+.demo-flag{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--warn-soft);color:var(--warn);font-weight:500;white-space:nowrap}
+
+@media (max-width:820px){
+  #menuBtn{display:inline-flex}
+  .app{grid-template-columns:1fr}
+  aside{display:none;position:fixed;top:57px;left:0;right:0;bottom:0;height:auto;z-index:15;border-right:0}
+  body.menu-open aside{display:block}
+  .vault{display:none}
+  .brand span{display:none}
+  header.top .bar{gap:6px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <button class="btn small" id="menuBtn" type="button" aria-label="페이지 목록 열기" hidden>목록</button>
+    <a class="brand" href="./">LLM Wiki <span>뷰어</span></a>
+    <span class="vault" id="vaultName"></span>
+    <span class="demo-flag" id="demoFlag" hidden>예시 위키</span>
+    <span class="spacer"></span>
+    <button class="btn small" id="reloadBtn" type="button" hidden title="폴더를 다시 읽어 Codex가 바꾼 내용을 반영">새로고침</button>
+    <button class="btn small" id="closeBtn" type="button" hidden>다른 폴더</button>
+    <button class="btn small" id="themeBtn" type="button" aria-label="화면 테마 바꾸기">테마</button>
+  </div>
+</header>
+
+<div id="landing" class="landing">
+  <h1>내 위키 폴더를<br>브라우저에서 바로 보기</h1>
+  <p class="lead">Codex가 만든 위키(Study-Wiki, LLM-Wiki 폴더)를 골라 열면 목차, 페이지, 링크, 검색, 오늘 복습할 개념을 한 화면에서 볼 수 있습니다. 설치할 것이 없습니다.</p>
+  <div class="actions">
+    <button class="btn primary" id="openBtn" type="button">위키 폴더 열기</button>
+    <button class="btn" id="resumeBtn" type="button" hidden></button>
+    <button class="btn" id="demoBtn" type="button">예시 위키로 체험하기</button>
+    <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+  </div>
+  <p class="hint">설치할 때 만든 폴더(예: 사용자 폴더 안의 <code>Study-Wiki</code>)를 고르세요. 브라우저가 "파일을 업로드할까요?"라고 물어도 실제로는 어디에도 올라가지 않고 이 화면에서만 읽습니다.</p>
+  <div id="loadErr"></div>
+  <div class="privacy">
+    <div class="card"><div class="ic">1</div><p><b>파일은 PC 밖으로 나가지 않습니다.</b> 이 페이지는 내 브라우저 안에서만 파일을 읽습니다. 서버로 보내는 코드가 없고, 페이지 자체도 GitHub에 공개된 HTML 한 장입니다.</p></div>
+    <div class="card"><div class="ic">2</div><p><b>읽기 전용입니다.</b> 위키를 고치거나 자료를 추가하는 일은 지금처럼 Codex에게 시키세요. 고친 뒤 <b>새로고침</b>을 누르면 바로 반영됩니다.</p></div>
+    <div class="card"><div class="ic">3</div><p><b><code>raw/</code> 원본은 읽지 않습니다.</b> <code>wiki/</code> 폴더의 마크다운 파일만 엽니다.</p></div>
+  </div>
+  <p class="hint" style="margin-top:24px">처음이라면 <a href="./">설치 안내</a>부터 보세요. 크롬·엣지에서는 다음에 "지난번 폴더 다시 열기"로 바로 열 수 있습니다.</p>
+</div>
+
+<div id="app" class="app" hidden>
+  <aside id="side">
+    <input class="search" id="q" type="search" placeholder="위키 검색 (제목·본문)" autocomplete="off">
+    <a class="nav-home" id="navHome" href="#/">대시보드</a>
+    <div id="tree"></div>
+  </aside>
+  <main class="view"><div class="inner" id="view"></div></main>
+</div>
+
+<script src="vendor/marked-12.0.2.min.js"></script>
+<script src="vendor/purify-3.1.6.min.js"></script>
+<script>
+(function(){
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+var W = { files:new Map(), name:"", handle:null, demo:false, edition:"study", backlinks:new Map(), missing:[] };
+
+/* ---------- small utils ---------- */
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function store(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function load(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function today(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function addDays(n){ var d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+
+var FOLDER_LABEL = {
+  "":"맨 위", courses:"과목", lectures:"강의", chapters:"교재 장", concepts:"개념 카드", problems:"문제 풀이",
+  review:"복습·시험 대비", answers:"저장한 답변", papers:"논문", metrics:"지표·FoM", groups:"연구 그룹",
+  questions:"열린 연구 질문", ideas:"내 아이디어 (비공개)"
+};
+var FOLDER_ORDER = ["","courses","lectures","chapters","papers","concepts","metrics","groups","questions","ideas","problems","review","answers"];
+
+/* ---------- parsing ---------- */
+function parseFM(text){
+  var m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text), fm = {};
+  if (!m) return { fm:fm, body:text };
+  m[1].split(/\r?\n/).forEach(function(line){
+    var mm = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(line); if (!mm) return;
+    var v = mm[2].replace(/\s+#.*$/,"").trim();
+    if (/^\[.*\]$/.test(v)) v = v.slice(1,-1).split(",").map(function(x){ return x.trim().replace(/^["']|["']$/g,""); }).filter(Boolean);
+    else v = v.replace(/^["']|["']$/g,"");
+    fm[mm[1]] = v;
+  });
+  return { fm:fm, body:text.slice(m[0].length) };
+}
+function addFile(path, text, mtime){
+  var key = path.replace(/\.md$/i,"");
+  var p = parseFM(text);
+  var h1 = /^#\s+(.+)$/m.exec(p.body);
+  var parts = key.split("/");
+  W.files.set(key, { key:key, name:parts[parts.length-1], folder:parts.length>1?parts[0]:"", title:h1?h1[1].trim():parts[parts.length-1],
+                     text:text, body:p.body, fm:p.fm, mtime:mtime||0 });
+}
+function resolve(target, fromKey){
+  var t = String(target).split("|")[0].split("#")[0].trim().replace(/\\/g,"/").replace(/\.md$/i,"").replace(/^\.?\/?(wiki\/)?/,"");
+  if (!t) return fromKey || null;
+  if (W.files.has(t)) return t;
+  if (fromKey && fromKey.indexOf("/")>0){
+    var rel = fromKey.split("/").slice(0,-1).concat(t.split("/")), out=[];
+    rel.forEach(function(s){ if (s==="..") out.pop(); else if (s && s!==".") out.push(s); });
+    if (W.files.has(out.join("/"))) return out.join("/");
+  }
+  var base = t.split("/").pop().toLowerCase(), hit=null;
+  W.files.forEach(function(f,k){ if (!hit && f.name.toLowerCase()===base) hit=k; });
+  return hit;
+}
+function linksIn(body){
+  var out=[], re=/\[\[([^\]\n]+)\]\]/g, m;
+  var stripped = body.replace(/```[\s\S]*?```/g,"").replace(/`[^`\n]*`/g,"");
+  while ((m=re.exec(stripped))) out.push(m[1]);
+  return out;
+}
+function buildIndex(){
+  W.backlinks = new Map(); W.missing = [];
+  W.files.forEach(function(f,k){
+    linksIn(f.body).forEach(function(l){
+      var r = resolve(l,k);
+      if (r){ if(!W.backlinks.has(r)) W.backlinks.set(r,new Set()); if (r!==k) W.backlinks.get(r).add(k); }
+      else W.missing.push({ from:k, target:l.split("|")[0] });
+    });
+  });
+  var has = function(fd){ var y=false; W.files.forEach(function(f){ if(f.folder===fd) y=true; }); return y; };
+  W.edition = (has("papers")||W.files.has("my-research")) && !has("courses") ? "research" : "study";
+}
+
+/* ---------- markdown ---------- */
+var currentKey = null;
+marked.use({ gfm:true, breaks:false, extensions:[{
+  name:"wikilink", level:"inline",
+  start:function(src){ var i=src.indexOf("[["); return i<0?undefined:i; },
+  tokenizer:function(src){ var m=/^!?\[\[([^\]\n]+)\]\]/.exec(src); if (m) return { type:"wikilink", raw:m[0], target:m[1] }; },
+  renderer:function(tok){
+    var parts = tok.target.split("|"), r = resolve(parts[0], currentKey);
+    var label = parts[1] ? parts[1].trim() : (r && W.files.get(r) ? W.files.get(r).title : (parts[0].split("#")[0].split("/").pop() || parts[0]).trim());
+    if (r) return '<a class="wl" href="#/'+encodeURI(r)+'">'+esc(label)+'</a>';
+    return '<a class="wl missing" title="아직 없는 페이지" href="#/'+encodeURI(parts[0].trim())+'">'+esc(label)+'</a>';
+  }
+}]});
+function renderMD(body, key){
+  currentKey = key;
+  var html = DOMPurify.sanitize(marked.parse(body), { FORBID_TAGS:["style","form","input","iframe"], FORBID_ATTR:["style"] });
+  var box = document.createElement("div"); box.className="md"; box.innerHTML = html;
+  box.querySelectorAll("blockquote").forEach(function(bq){
+    var p = bq.querySelector("p"); if (!p) return;
+    var m = /^\s*\[!(\w+)\][+-]?\s*([^\n]*)/.exec(p.textContent); if (!m) return;
+    var type = m[1].toLowerCase();
+    bq.classList.add("callout","c-"+type);
+    var first = p.firstChild;
+    if (first && first.nodeType===3){
+      var nl = first.nodeValue.indexOf("\n");
+      var titleText = (nl>=0 ? first.nodeValue.slice(0,nl) : first.nodeValue).replace(/^\s*\[!\w+\][+-]?\s*/,"");
+      first.nodeValue = nl>=0 ? first.nodeValue.slice(nl+1) : "";
+      var t = document.createElement("span"); t.className="callout-title"; t.textContent = titleText || m[1];
+      p.insertBefore(t, p.firstChild);
+    }
+  });
+  box.querySelectorAll("a[href]").forEach(function(a){
+    var h = a.getAttribute("href");
+    if (/^(https?:|mailto:)/i.test(h)){ a.target="_blank"; a.rel="noopener noreferrer"; return; }
+    if (h.charAt(0)==="#") return;
+    var r = resolve(decodeURI(h), key);
+    if (r) a.setAttribute("href","#/"+encodeURI(r)); else { a.classList.add("wl","missing"); a.removeAttribute("href"); }
+  });
+  box.querySelectorAll("img").forEach(function(img){ var s=img.getAttribute("src")||""; if (!/^(https?:|data:)/.test(s)) img.replaceWith(document.createTextNode("[그림: "+(img.alt||s)+"]")); });
+  return box;
+}
+function inlineMD(s, key){ currentKey = key; return DOMPurify.sanitize(marked.parseInline(s)); }
+
+/* ---------- loading ---------- */
+async function walk(dir, prefix, out){
+  for await (var entry of dir.values()){
+    var name = entry.name;
+    if (entry.kind==="directory"){
+      if (/^(\.|node_modules$)/.test(name)) continue;
+      if (!prefix && name!=="wiki") continue;
+      await walk(entry, prefix+name+"/", out);
+    } else if (/\.md$/i.test(name) && prefix){
+      var f = await entry.getFile(); out.push({ path:prefix+name, file:f });
+    }
+  }
+}
+async function loadFromHandle(handle){
+  var list=[];
+  await walk(handle, "", list);
+  if (!list.length){
+    // maybe the user picked the wiki/ folder itself
+    try { await handle.getFileHandle("index.md"); } catch(e){ throw new Error("이 폴더에서 wiki/ 폴더를 찾지 못했습니다. 설치할 때 만든 위키 폴더(예: Study-Wiki)를 고르세요."); }
+    await walkFlat(handle, "", list);
+    return finishLoad(list.map(function(x){ return { path:x.path, file:x.file }; }), handle.name);
+  }
+  return finishLoad(list.map(function(x){ return { path:x.path.replace(/^wiki\//,""), file:x.file }; }), handle.name);
+}
+async function walkFlat(dir, prefix, out){
+  for await (var entry of dir.values()){
+    if (entry.kind==="directory"){ if (!/^\./.test(entry.name)) await walkFlat(entry, prefix+entry.name+"/", out); }
+    else if (/\.md$/i.test(entry.name)) out.push({ path:prefix+entry.name, file:await entry.getFile() });
+  }
+}
+async function loadFromInput(fileList){
+  var arr = Array.prototype.slice.call(fileList), list=[], root="";
+  arr.forEach(function(f){
+    var rp = f.webkitRelativePath || f.name, segs = rp.split("/");
+    root = root || segs[0];
+    var rest = segs.slice(1);
+    var wi = rest.indexOf("wiki");
+    if (wi===0 && /\.md$/i.test(f.name)) list.push({ path:rest.slice(1).join("/"), file:f });
+  });
+  if (!list.length){
+    var flat = arr.filter(function(f){ return /\.md$/i.test(f.name); });
+    if (flat.some(function(f){ return (f.webkitRelativePath||"").split("/").slice(1).join("/")==="index.md"; }))
+      list = flat.map(function(f){ return { path:(f.webkitRelativePath||f.name).split("/").slice(1).join("/"), file:f }; });
+  }
+  if (!list.length) throw new Error("이 폴더에서 wiki/ 폴더를 찾지 못했습니다. 설치할 때 만든 위키 폴더(예: Study-Wiki)를 고르세요.");
+  return finishLoad(list, root);
+}
+async function finishLoad(list, name){
+  W.files = new Map();
+  for (var i=0;i<list.length;i++){ addFile(list[i].path, await list[i].file.text(), list[i].file.lastModified); }
+  W.name = name; W.demo = false;
+  buildIndex(); showApp();
+}
+
+/* ---------- demo wiki (fictional) ---------- */
+function loadDemo(){
+  var D = {
+"index.md":"---\ntype: index\n---\n# 위키 목차\n\n> 예시 위키입니다. 실제 위키는 `$wiki-ingest`를 할 때마다 Codex가 이 목차를 채웁니다.\n\n## 시작하기\n- [[log]] — 작업 일지\n- [[review/quiz-log]] — 퀴즈 기록과 복습 일정\n\n## 과목\n- [[courses/회로이론]] — 회로이론 (예시)\n\n## 개념 카드\n### 회로이론\n- [[concepts/테브난-등가회로]] — 복잡한 회로를 전압원 하나와 저항 하나로\n- [[concepts/노턴-등가회로]] — 전류원 하나와 저항 하나로\n- [[concepts/중첩의-원리]] — 전원을 하나씩 켜서 더하기\n- [[concepts/최대-전력-전달]] — 부하 저항이 R_th일 때 최대\n\n## 시험 대비·오답노트\n- [[review/회로이론-오답노트]]\n",
+"log.md":"---\ntype: log\n---\n# 작업 일지\n\n- "+addDays(-9)+" | install | LLM Wiki Kit | 템플릿 설치 완료\n- "+addDays(-9)+" | setup | 회로이론 | 과목 허브 생성, 강의계획서 읽음\n- "+addDays(-8)+" | ingest | 회로이론 2주차 | 강의 페이지 1, 개념 카드 1\n- "+addDays(-3)+" | ingest | 회로이론 3주차 | 강의 페이지 1, 개념 카드 3, ⭐ 2곳\n- "+addDays(-3)+" | quiz | 회로이론 3주차 | 5문제 중 3개 정답\n- "+addDays(-1)+" | lint | 전체 | 표기 불일치 1건 수정\n",
+"courses/회로이론.md":"---\ntype: course\ncourse: 회로이론\ntags: [course, circuits]\n---\n# 회로이론\n\n## 한눈에 보기\n- 평가: 중간 35%, 기말 40%, 과제 25% (syllabus p.1)\n- 교재: 예시 교재 3판\n\n## 주차별 강의\n| 주차 | 주제 | 페이지 | 교재 범위 |\n| --- | --- | --- | --- |\n| 2 | 중첩의 원리 | [[lectures/회로이론-w02-중첩]] | ch.4.1–4.3 |\n| 3 | 테브난과 노턴 | [[lectures/회로이론-w03-테브난과노턴]] | ch.4.5–4.8 |\n\n## 시험 범위\n- 중간: 1–7주차 (syllabus p.2)\n\n## 핵심 개념 지도\n- [[concepts/중첩의-원리]] → [[concepts/테브난-등가회로]] → [[concepts/최대-전력-전달]]\n- [[concepts/테브난-등가회로]] ↔ [[concepts/노턴-등가회로]] : 전원 변환으로 서로 바뀜\n",
+"lectures/회로이론-w02-중첩.md":"---\ntype: lecture\ncourse: \"[[courses/회로이론]]\"\nweek: 2\ntags: [lecture, circuits]\n---\n# 2주차: 중첩의 원리\n\n**이번 강의 한 줄 요약**: 선형 회로에서는 전원을 하나씩만 켜고 구한 답을 더하면 된다.\n\n## 핵심 내용\n- 끈 전압원은 단락, 끈 전류원은 개방 (s.5)\n- ⭐ 강조: 전력은 중첩되지 않는다 (s.11)\n\n## 관련 페이지\n- [[concepts/중첩의-원리]]\n",
+"lectures/회로이론-w03-테브난과노턴.md":"---\ntype: lecture\ncourse: \"[[courses/회로이론]]\"\nweek: 3\nsource: raw/lectures/회로이론/week03.pptx\ntags: [lecture, circuits]\n---\n# 3주차: 테브난과 노턴\n\n**이번 강의 한 줄 요약**: 어떤 선형 회로든 단자 두 개에서 보면 전원 하나와 저항 하나로 바꿀 수 있다.\n\n## 학습 목표\n- V_th, R_th, I_N을 구할 수 있다\n- 종속 전원이 있을 때 R_th를 구할 수 있다\n\n## 핵심 내용 (슬라이드 순서대로)\n- 부하를 떼고 개방 전압을 구하면 V_th (s.11)\n- 독립 전원을 끄고 단자에서 본 저항이 R_th (s.12)\n- ⭐ 강조: 종속 전원은 끄지 않고 테스트 전원을 붙인다 (s.14)\n- 단락 전류가 I_N, 그리고 R_th = V_th / I_N (s.22)\n\n> [!note] 교재 표기\n> 교재는 R_th 대신 R_eq를 씁니다 (교재 p.152). 이 위키는 수업 표기를 따릅니다.\n\n## 이해 확인 질문\n1. 종속 전원이 있을 때 전원을 모두 끄면 왜 안 될까?\n2. V_th와 I_N만 알 때 R_th는?\n3. 노턴 회로를 테브난 회로로 바꾸려면?\n\n## 관련 페이지\n- [[concepts/테브난-등가회로]], [[concepts/노턴-등가회로]], [[concepts/최대-전력-전달]]\n",
+"concepts/테브난-등가회로.md":"---\ntype: concept\ncourse: \"[[courses/회로이론]]\"\ntags: [concept, circuits]\nmastery: learning\n---\n# 테브난 등가회로\n\n**한 줄 정의**: 두 단자에서 본 선형 회로를 전압원 V_th와 직렬 저항 R_th로 바꾼 것 ([[lectures/회로이론-w03-테브난과노턴]], s.6)\n\n## 직관적으로 말하면\n- 벽의 콘센트 뒤에 무엇이 있든, 콘센트 입장에서는 \"전지 하나와 저항 하나\"로 보인다. (보충 설명)\n\n## 구하는 순서\n1. 부하를 떼어 낸다 (s.10)\n2. 개방 전압 → V_th (s.11)\n3. 독립 전원을 끄고 본 저항 → R_th (s.12)\n\n## 흔한 실수\n> [!warning] 종속 전원까지 끄기\n> 종속 전원은 끄지 않는다. 테스트 전원을 붙여 V/I로 구한다 (s.14). 퀴즈에서 한 번 틀렸음 → [[review/회로이론-오답노트]]\n\n## 관련\n- [[concepts/노턴-등가회로]] · [[concepts/최대-전력-전달]] · [[concepts/중첩의-원리]]\n",
+"concepts/노턴-등가회로.md":"---\ntype: concept\ncourse: \"[[courses/회로이론]]\"\ntags: [concept, circuits]\nmastery: mastered\n---\n# 노턴 등가회로\n\n**한 줄 정의**: 전류원 I_N과 병렬 저항 R_th로 바꾼 것 ([[lectures/회로이론-w03-테브난과노턴]], s.22)\n\n## 수식\n- I_N = V_th / R_th\n\n## 관련\n- [[concepts/테브난-등가회로]]\n",
+"concepts/중첩의-원리.md":"---\ntype: concept\ncourse: \"[[courses/회로이론]]\"\ntags: [concept, circuits]\nmastery: learning\n---\n# 중첩의 원리\n\n**한 줄 정의**: 선형 회로의 응답은 각 독립 전원이 혼자 있을 때 응답의 합 ([[lectures/회로이론-w02-중첩]], s.3)\n\n## 흔한 실수\n- 전력을 중첩으로 더하기 (s.11)\n",
+"concepts/최대-전력-전달.md":"---\ntype: concept\ncourse: \"[[courses/회로이론]]\"\ntags: [concept, circuits]\nmastery: new\n---\n# 최대 전력 전달\n\n**한 줄 정의**: 부하 저항이 R_th와 같을 때 부하 전력이 최대 ([[lectures/회로이론-w03-테브난과노턴]], s.28)\n\n## 수식\n- P_max = V_th² / (4 R_th)\n\n## 관련\n- [[concepts/테브난-등가회로]]\n",
+"review/quiz-log.md":"---\ntype: review\n---\n# 퀴즈 기록과 복습 일정\n\n| 날짜 | 개념 | 결과 | 연속 정답 | 다음 복습일 |\n| --- | --- | --- | --- | --- |\n| "+addDays(-3)+" | [[concepts/테브난-등가회로]] | 틀림 | 0 | "+addDays(-2)+" |\n| "+addDays(-3)+" | [[concepts/노턴-등가회로]] | 맞음 | 3 | "+addDays(11)+" |\n| "+addDays(-3)+" | [[concepts/중첩의-원리]] | 맞음 | 1 | "+addDays(0)+" |\n| "+addDays(-3)+" | [[concepts/최대-전력-전달]] | 틀림 | 0 | "+addDays(-2)+" |\n",
+"review/회로이론-오답노트.md":"---\ntype: review\ncourse: \"[[courses/회로이론]]\"\n---\n# 회로이론 오답노트\n\n## "+addDays(-3)+" 퀴즈\n| 문제 요약 | 내 답 | 왜 틀렸나 | 올바른 생각 |\n| --- | --- | --- | --- |\n| 종속 전원이 있을 때 R_th | 전원 다 끄고 계산 | 개념 오해 | 테스트 전원을 붙여 V/I ([[concepts/테브난-등가회로]]) |\n"
+  };
+  W.files = new Map();
+  var now = Date.now(), i = 0;
+  Object.keys(D).forEach(function(p){ addFile(p, D[p], now - (i++)*3600e3*7); });
+  W.name = "Study-Wiki (예시)"; W.demo = true; W.handle = null;
+  buildIndex(); showApp();
+}
+
+/* ---------- views ---------- */
+function showApp(){
+  $("landing").hidden = true; $("app").hidden = false;
+  $("menuBtn").hidden = false; $("closeBtn").hidden = false;
+  $("reloadBtn").hidden = !W.handle && !W.demo ? true : W.demo;
+  $("demoFlag").hidden = !W.demo;
+  $("vaultName").textContent = W.name;
+  document.title = W.name + " · LLM Wiki 뷰어";
+  buildTree(); route();
+}
+function groupFiles(){
+  var g = {};
+  W.files.forEach(function(f){ (g[f.folder] = g[f.folder] || []).push(f); });
+  Object.keys(g).forEach(function(k){ g[k].sort(function(a,b){ return a.key.localeCompare(b.key,"ko"); }); });
+  return g;
+}
+function folderOrder(keys){
+  return keys.sort(function(a,b){ var ia=FOLDER_ORDER.indexOf(a), ib=FOLDER_ORDER.indexOf(b); ia=ia<0?99:ia; ib=ib<0?99:ib; return ia-ib || a.localeCompare(b); });
+}
+function buildTree(){
+  var g = groupFiles(), html = "", open = JSON.parse(load("llmwiki-open")||"{}");
+  folderOrder(Object.keys(g)).forEach(function(fd){
+    var isOpen = open[fd]!==undefined ? open[fd] : (fd==="" || g[fd].length<=12);
+    html += '<details class="grp" data-fd="'+esc(fd)+'"'+(isOpen?" open":"")+'><summary><span class="lbl">'+esc(FOLDER_LABEL[fd]||fd)+'</span><span class="ct">'+g[fd].length+'</span></summary>';
+    g[fd].forEach(function(f){ html += '<a class="pg" data-key="'+esc(f.key)+'" href="#/'+encodeURI(f.key)+'" title="'+esc(f.title)+'">'+esc(f.title)+'</a>'; });
+    html += '</details>';
+  });
+  $("tree").innerHTML = html;
+  $("tree").querySelectorAll("details.grp").forEach(function(d){
+    d.addEventListener("toggle", function(){ var o=JSON.parse(load("llmwiki-open")||"{}"); o[d.dataset.fd]=d.open; store("llmwiki-open", JSON.stringify(o)); });
+  });
+}
+function markNav(key){
+  $("navHome").classList.toggle("on", !key);
+  $("tree").querySelectorAll(".pg").forEach(function(a){ a.classList.toggle("on", a.dataset.key===key); });
+}
+function route(){
+  document.body.classList.remove("menu-open");
+  if ($("app").hidden) return;
+  var h = decodeURI(location.hash.replace(/^#\/?/,""));
+  if (!h) { renderDash(); markNav(null); }
+  else { renderPage(h); markNav(h); }
+  window.scrollTo(0,0);
+}
+function linkTo(key, label){ return '<a href="#/'+encodeURI(key)+'">'+esc(label || (W.files.get(key)||{}).title || key)+'</a>'; }
+
+function parseQuizLog(){
+  var f = W.files.get("review/quiz-log"); if (!f) return null;
+  var lines = f.body.split(/\r?\n/).filter(function(l){ return /^\s*\|/.test(l); });
+  if (lines.length<2) return { rows:[] };
+  var cells = function(l){ return l.trim().replace(/^\||\|$/g,"").split("|").map(function(c){ return c.trim(); }); };
+  var head = cells(lines[0]);
+  var ic = head.findIndex(function(h){ return /개념/.test(h); }), id = head.findIndex(function(h){ return /다음/.test(h); }), ir = head.findIndex(function(h){ return /결과/.test(h); });
+  if (ic<0 || id<0) return { rows:[] };
+  var latest = new Map();
+  lines.slice(1).forEach(function(l){
+    if (/^\s*\|\s*:?-{2,}/.test(l)) return;
+    var c = cells(l); if (!c[ic]) return;
+    latest.set(c[ic], { concept:c[ic], next:c[id]||"", result:ir>=0?c[ir]:"" });
+  });
+  return { rows:Array.from(latest.values()) };
+}
+function renderDash(){
+  var v = $("view"), g = groupFiles(), t = today();
+  var isStudy = W.edition==="study";
+  var statKeys = isStudy ? ["courses","lectures","chapters","concepts","problems","answers"] : ["papers","concepts","metrics","groups","questions","answers"];
+  var stats = '<a class="stat" href="#/index"><div class="v">'+W.files.size+'</div><div class="k">전체 페이지</div></a>';
+  statKeys.forEach(function(k){ stats += '<div class="stat"><div class="v">'+((g[k]||[]).length)+'</div><div class="k">'+esc(FOLDER_LABEL[k])+'</div></div>'; });
+
+  var panels = "";
+  // review due (study) / open questions (research)
+  if (isStudy){
+    var q = parseQuizLog(), due = [], later = [];
+    if (q) q.rows.forEach(function(r){ (r.next && r.next<=t ? due : later).push(r); });
+    due.sort(function(a,b){ return a.next.localeCompare(b.next); });
+    var li = due.map(function(r){ return '<li><span>'+inlineMD(r.concept,"review/quiz-log")+'</span><span class="meta due">'+(r.next<t?"밀림 · ":"")+esc(r.next)+'</span></li>'; }).join("");
+    panels += '<div class="card panel"><h2>오늘 복습할 개념 '+(due.length?'<span class="due">'+due.length+'</span>':'')+'</h2>'+
+      (li ? '<ul>'+li+'</ul><p class="hint" style="margin:8px 0 0">Codex에게 <code>$wiki-quiz 오늘 복습할 거</code>라고 입력하세요.</p>'
+          : '<p class="empty">'+(q && q.rows.length ? "오늘은 복습할 개념이 없습니다. 다음 복습: "+esc(later.map(function(r){return r.next;}).sort()[0]||"–") : "아직 퀴즈 기록이 없습니다. Codex에게 <code>$wiki-quiz</code>로 첫 퀴즈를 받아 보세요.")+'</p>')+'</div>';
+    // mastery
+    var m = {new:0, learning:0, mastered:0};
+    (g.concepts||[]).forEach(function(f){ var k=(f.fm.mastery||"new"); if (m[k]===undefined) k="new"; m[k]++; });
+    var tot = m.new+m.learning+m.mastered;
+    panels += '<div class="card panel"><h2>개념 이해도</h2>'+(tot ?
+      '<div class="mbar"><span style="width:'+(m.mastered/tot*100)+'%;background:var(--accent)"></span><span style="width:'+(m.learning/tot*100)+'%;background:var(--warn)"></span><span style="width:'+(m.new/tot*100)+'%;background:var(--line)"></span></div>'+
+      '<div class="legend"><span><i style="background:var(--accent)"></i>익힘 '+m.mastered+'</span><span><i style="background:var(--warn)"></i>공부 중 '+m.learning+'</span><span><i style="background:var(--line)"></i>새 개념 '+m.new+'</span></div>'+
+      '<p class="hint" style="margin:8px 0 0">퀴즈를 맞히고 틀릴 때마다 Codex가 개념 카드의 <code>mastery</code>를 바꿉니다.</p>'
+      : '<p class="empty">개념 카드가 아직 없습니다. 자료를 넣고 <code>$wiki-ingest</code>를 실행하세요.</p>')+'</div>';
+  } else {
+    var qs = (g.questions||[]).map(function(f){ return '<li>'+linkTo(f.key)+'<span class="meta">'+esc(f.fm.status||"")+'</span></li>'; }).join("");
+    panels += '<div class="card panel"><h2>열린 연구 질문</h2>'+(qs?'<ul>'+qs+'</ul>':'<p class="empty">아직 없습니다. 논문을 소화하면 Codex가 문헌 공백을 여기에 정리합니다.</p>')+'</div>';
+    var ps = (g.papers||[]).slice().sort(function(a,b){ return String(b.fm.year||"").localeCompare(String(a.fm.year||"")); }).slice(0,8)
+      .map(function(f){ return '<li>'+linkTo(f.key)+'<span class="meta">'+esc(f.fm.year||"")+'</span></li>'; }).join("");
+    panels += '<div class="card panel"><h2>최근 연도 논문</h2>'+(ps?'<ul>'+ps+'</ul>':'<p class="empty">논문 PDF를 <code>raw/papers/</code>에 넣고 <code>$wiki-ingest</code>를 실행하세요.</p>')+'</div>';
+  }
+  // recent log
+  var lg = W.files.get("log"), logs = [];
+  if (lg) logs = lg.body.split(/\r?\n/).filter(function(l){ return /^\s*-\s+\S/.test(l); }).slice(-8).reverse();
+  panels += '<div class="card panel"><h2>최근 작업 일지</h2>'+(logs.length ? '<ul>'+logs.map(function(l){
+      var c = l.replace(/^\s*-\s+/,"").split("|").map(function(s){ return s.trim(); });
+      return '<li><span>'+esc(c[1]||"")+' · '+esc(c[2]||"")+(c[3]?' <span class="hint">'+esc(c[3])+'</span>':'')+'</span><span class="meta">'+esc(c[0]||"")+'</span></li>';
+    }).join("")+'</ul>' : '<p class="empty">일지가 비어 있습니다.</p>')+'</div>';
+  // recently modified
+  var rec = Array.from(W.files.values()).filter(function(f){ return f.key!=="log" && f.key!=="index"; }).sort(function(a,b){ return b.mtime-a.mtime; }).slice(0,8);
+  panels += '<div class="card panel"><h2>최근 바뀐 페이지</h2>'+(rec.length?'<ul>'+rec.map(function(f){
+      return '<li>'+linkTo(f.key)+'<span class="meta">'+esc(FOLDER_LABEL[f.folder]||f.folder)+'</span></li>'; }).join("")+'</ul>':'<p class="empty">없음</p>')+'</div>';
+  // missing links
+  if (W.missing.length){
+    var seen = {}, ms = W.missing.filter(function(x){ if (seen[x.target]) return false; seen[x.target]=1; return true; }).slice(0,10);
+    panels += '<div class="card panel"><h2>아직 없는 페이지로 가는 링크 '+W.missing.length+'</h2><ul>'+ms.map(function(x){
+      return '<li><span>'+esc(x.target)+'</span><span class="meta">'+linkTo(x.from, (W.files.get(x.from)||{}).title)+'</span></li>'; }).join("")+
+      '</ul><p class="hint" style="margin:8px 0 0">Codex에게 <code>$wiki-lint</code>를 시키면 정리해 줍니다.</p></div>';
+  }
+  v.innerHTML = '<div class="dash"><h1>'+esc(W.name)+'</h1><p class="sub">'+(isStudy?"학습용":"연구자용")+' 위키 · '+esc(t)+' 기준'+(W.demo?' · 가상의 예시 내용입니다':'')+'</p>'+
+    '<div class="stats">'+stats+'</div><div class="panels">'+panels+'</div>'+
+    (W.files.has("index") ? '<p style="margin-top:24px"><a class="btn" href="#/index">위키 목차 열기</a></p>' : '')+'</div>';
+}
+function renderPage(key){
+  var v = $("view"), f = W.files.get(key);
+  if (!f){
+    v.innerHTML = '<div class="md"><h1>'+esc(key.split("/").pop())+'</h1><p>아직 없는 페이지입니다. Codex에게 "'+esc(key.split("/").pop())+' 페이지 만들어줘"라고 하거나 <code>$wiki-lint</code>로 정리하세요.</p><p><a href="#/">대시보드로</a></p></div>';
+    return;
+  }
+  var fm = f.fm, b = [];
+  if (fm.type) b.push('<span class="badge">'+esc(fm.type)+'</span>');
+  if (fm.week) b.push('<span class="badge">'+esc(fm.week)+'주차</span>');
+  if (fm.year) b.push('<span class="badge">'+esc(fm.year)+'</span>');
+  if (fm.venue) b.push('<span class="badge">'+esc(fm.venue)+'</span>');
+  if (fm.status) b.push('<span class="badge">'+esc(fm.status)+'</span>');
+  if (fm.mastery){ var ml={new:"새 개념",learning:"공부 중",mastered:"익힘"}[fm.mastery]||fm.mastery; b.push('<span class="badge m-'+esc(fm.mastery)+'">'+esc(ml)+'</span>'); }
+  if (f.folder==="ideas" || key==="my-research" || fm.private==="true") b.push('<span class="badge private">비공개</span>');
+  (Array.isArray(fm.tags)?fm.tags:[]).forEach(function(t){ b.push('<span class="badge">#'+esc(t)+'</span>'); });
+  var course = typeof fm.course==="string" && /\[\[/.test(fm.course) ? inlineMD(fm.course, key) : (fm.course?esc(fm.course):"");
+  var obs = W.demo ? "" : ' · <a href="obsidian://open?vault='+encodeURIComponent(W.name)+'&file='+encodeURIComponent("wiki/"+key)+'">Obsidian에서 열기</a>';
+  v.innerHTML = '<div class="crumb"><span>wiki/'+esc(key)+'.md</span>'+(course?'<span>· '+course+'</span>':'')+'</div>'+(b.length?'<div class="badges">'+b.join("")+'</div>':'');
+  v.appendChild(renderMD(f.body, key));
+  var bl = Array.from(W.backlinks.get(key)||[]);
+  var foot = document.createElement("div");
+  foot.innerHTML = (bl.length ? '<div class="backlinks"><h2>이 페이지를 가리키는 페이지 '+bl.length+'</h2>'+bl.sort().map(function(k){ return linkTo(k); }).join("")+'</div>' : '')+
+    '<p class="pagefoot">읽기 전용입니다. 고치려면 Codex에게 말하세요'+obs+'.</p>';
+  v.appendChild(foot);
+}
+function renderSearch(q){
+  if (!q){ buildTree(); markNav(decodeURI(location.hash.replace(/^#\/?/,""))||null); return; }
+  var terms = q.toLowerCase().split(/\s+/).filter(Boolean), res = [];
+  W.files.forEach(function(f){
+    var hay = (f.title+"\n"+f.body).toLowerCase(), score = 0, ok = true;
+    terms.forEach(function(t){ var i = hay.indexOf(t); if (i<0) ok=false; else score += (f.title.toLowerCase().indexOf(t)>=0?10:1); });
+    if (ok) res.push({ f:f, score:score });
+  });
+  res.sort(function(a,b){ return b.score-a.score; });
+  var hl = function(s){ var out = esc(s); terms.forEach(function(t){ out = out.replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/&/g,"&amp;").replace(/</g,"&lt;"),"gi"), function(m){ return "<mark>"+m+"</mark>"; }); }); return out; };
+  $("tree").innerHTML = res.length ? res.slice(0,50).map(function(r){
+    var body = r.f.body.replace(/\s+/g," "), i = body.toLowerCase().indexOf(terms[0]);
+    var snip = i>=0 ? (i>30?"…":"")+body.slice(Math.max(0,i-30), i+70)+"…" : "";
+    return '<a class="res" href="#/'+encodeURI(r.f.key)+'"><div class="t">'+hl(r.f.title)+'</div><div class="p">'+esc(r.f.key)+'</div>'+(snip?'<div class="s">'+hl(snip)+'</div>':'')+'</a>';
+  }).join("") : '<p class="hint" style="padding:8px">"'+esc(q)+'"가 들어간 페이지가 없습니다. 위키에 없는 내용은 Codex에게 물어보세요.</p>';
+}
+
+/* ---------- remember folder (Chrome/Edge) ---------- */
+function idb(){ return new Promise(function(res,rej){ var r=indexedDB.open("llmwiki-viewer",1); r.onupgradeneeded=function(){ r.result.createObjectStore("h"); }; r.onsuccess=function(){ res(r.result); }; r.onerror=function(){ rej(r.error); }; }); }
+async function saveHandle(h){ try{ var db=await idb(); db.transaction("h","readwrite").objectStore("h").put(h,"last"); }catch(e){} }
+async function getHandle(){ try{ var db=await idb(); return await new Promise(function(res){ var r=db.transaction("h").objectStore("h").get("last"); r.onsuccess=function(){ res(r.result||null); }; r.onerror=function(){ res(null); }; }); }catch(e){ return null; } }
+
+function showErr(e){ $("loadErr").innerHTML = '<div class="err">'+esc(e && e.message ? e.message : e)+'</div>'; }
+async function openPicker(){
+  $("loadErr").innerHTML = "";
+  if (window.showDirectoryPicker){
+    try {
+      var h = await window.showDirectoryPicker({ id:"llmwiki", mode:"read" });
+      W.handle = h; await loadFromHandle(h); saveHandle(h);
+    } catch(e){ if (e && e.name==="AbortError") return; showErr(e); }
+  } else { $("dirInput").click(); }
+}
+
+/* ---------- events ---------- */
+$("openBtn").addEventListener("click", openPicker);
+$("demoBtn").addEventListener("click", function(){ location.hash = "#/"; loadDemo(); });
+$("dirInput").addEventListener("change", async function(){ try{ W.handle=null; await loadFromInput(this.files); } catch(e){ showErr(e); } this.value=""; });
+$("reloadBtn").addEventListener("click", async function(){ if (!W.handle) return; try{ await loadFromHandle(W.handle); }catch(e){ alertless(e); } });
+$("closeBtn").addEventListener("click", function(){ W.files=new Map(); W.handle=null; $("app").hidden=true; $("landing").hidden=false; ["menuBtn","closeBtn","reloadBtn","demoFlag"].forEach(function(id){ $(id).hidden=true; }); $("vaultName").textContent=""; document.title="LLM Wiki 뷰어"; history.replaceState(null,"",location.pathname); initResume(); });
+$("menuBtn").addEventListener("click", function(){ document.body.classList.toggle("menu-open"); });
+$("q").addEventListener("input", function(){ renderSearch(this.value.trim()); });
+$("themeBtn").addEventListener("click", function(){
+  var cur = document.documentElement.getAttribute("data-theme");
+  var dark = cur ? cur==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  var next = dark ? "light" : "dark"; document.documentElement.setAttribute("data-theme", next); store("llmwiki-theme", next);
+});
+window.addEventListener("hashchange", route);
+function alertless(e){ var v=$("view"); var d=document.createElement("div"); d.className="err"; d.textContent="다시 읽지 못했습니다: "+(e&&e.message||e); v.prepend(d); }
+var th = load("llmwiki-theme"); if (th) document.documentElement.setAttribute("data-theme", th);
+
+async function initResume(){
+  var btn = $("resumeBtn"); btn.hidden = true;
+  if (!window.showDirectoryPicker) return;
+  var h = await getHandle(); if (!h) return;
+  btn.textContent = "지난번 폴더 다시 열기 ("+h.name+")"; btn.hidden = false;
+  btn.onclick = async function(){
+    try {
+      var p = await h.queryPermission({mode:"read"});
+      if (p!=="granted") p = await h.requestPermission({mode:"read"});
+      if (p!=="granted") return;
+      W.handle = h; await loadFromHandle(h);
+    } catch(e){ showErr(e); }
+  };
+}
+initResume();
+if (/[?&]demo\b/.test(location.search)) loadDemo();
+})();
+</script>
+</body>
+</html>
