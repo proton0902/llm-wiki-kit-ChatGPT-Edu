@@ -214,6 +214,7 @@ footer{padding:32px 0 48px;color:var(--muted);font-size:14px}
     <div id="installBody"></div>
 
     <div class="note">설치가 끝나면 <b id="destName">Study-Wiki</b> 폴더가 생깁니다. 이 폴더 하나가 위키 전체이고, 지워도 다른 곳에는 영향이 없습니다.</div>
+    <div class="card" id="exampleBox" style="margin-top:16px"></div>
   </div>
 </section>
 
@@ -238,13 +239,25 @@ footer{padding:32px 0 48px;color:var(--muted);font-size:14px}
     <div class="eyebrow">예시 사용법</div>
     <h2>실제로 이렇게 대화합니다</h2>
     <p class="sub">Codex에게 입력하는 말과, 돌아오는 답·만들어지는 파일의 모습입니다. 아래 내용은 사용법을 보여 주기 위해 만든 가상의 예시입니다.</p>
+    <div class="controls">
+      <div><label>판</label>
+        <div class="seg" role="group" aria-label="예시 판 선택">
+          <button type="button" data-ed="study" aria-pressed="true">학습용</button>
+          <button type="button" data-ed="research" aria-pressed="false">연구자용</button>
+        </div>
+      </div>
+    </div>
     <div class="seg ex-tabs" role="tablist" aria-label="예시 선택">
-      <button type="button" data-ex="ingest" aria-pressed="true">자료 소화</button>
-      <button type="button" data-ex="query" aria-pressed="false">질문</button>
-      <button type="button" data-ex="quiz" aria-pressed="false">퀴즈·복습</button>
-      <button type="button" data-ex="exam" aria-pressed="false">시험 대비</button>
-      <button type="button" data-ex="compare" aria-pressed="false">비교표 (연구)</button>
-      <button type="button" data-ex="lint" aria-pressed="false">점검</button>
+      <button type="button" data-ex="ingest" data-for="study" aria-pressed="true">자료 소화</button>
+      <button type="button" data-ex="query" data-for="study" aria-pressed="false">질문</button>
+      <button type="button" data-ex="quiz" data-for="study" aria-pressed="false">퀴즈·복습</button>
+      <button type="button" data-ex="exam" data-for="study" aria-pressed="false">시험 대비</button>
+      <button type="button" data-ex="r-ingest" data-for="research" aria-pressed="false">논문 소화</button>
+      <button type="button" data-ex="r-query" data-for="research" aria-pressed="false">근거 있는 질문</button>
+      <button type="button" data-ex="compare" data-for="research" aria-pressed="false">비교표</button>
+      <button type="button" data-ex="novelty" data-for="research" aria-pressed="false">아이디어 중복 확인</button>
+      <button type="button" data-ex="lint" data-for="both" aria-pressed="false">점검</button>
+      <a class="btn small" href="viewer.html" style="margin-left:4px;border:0;background:transparent;color:var(--accent)">뷰어에서 예시 위키 보기 →</a>
     </div>
 
     <div class="ex-panel" data-panel="ingest">
@@ -328,6 +341,45 @@ wiki/review/quiz-log.md            다음 복습일: 종속전원 → 내일, �
       </div>
     </div>
 
+    <div class="ex-panel" data-panel="r-ingest" hidden>
+      <div class="chat">
+        <div class="bubble me"><div class="who">나</div>$wiki-ingest raw/papers/ 에 새로 넣은 논문 2편 소화해줘.</div>
+        <div class="bubble ai"><div class="who">Codex</div>
+          <p>2편을 읽었습니다 (12쪽, 9쪽). 아래 페이지를 만들고 연결했습니다.</p>
+          <div class="files">wiki/papers/kim2025-저전력수신기.md        (새 논문 페이지)
+wiki/papers/lee2025-웨이크업수신기.md      (새 논문 페이지, arXiv판과 version_of 연결)
+wiki/metrics/에너지-효율.md                 (FoM 정의 추가, 논문마다 정의가 다름 표시)
+wiki/groups/예시대학-집적회로연구실.md      (새 그룹)
+wiki/questions/인체-채널-측정-조건.md       (새 열린 질문)
+wiki/references.bib · index.md · log.md   (갱신)</div>
+          <ul>
+            <li>주요 수치 9개를 표로 정리하고 모두 위치를 달았습니다 <span class="src">Tab.II p.6</span> <span class="src">Fig.9 p.8</span></li>
+            <li>"최초"라는 표현 1곳은 <code>[저자 주장]</code>으로 표시했습니다 <span class="src">p.1</span></li>
+            <li>시뮬레이션 값 2개는 <code>(sim.)</code>으로 실측과 구분했습니다.</li>
+          </ul>
+        </div>
+      </div>
+      <p class="ex-caption">가상의 논문입니다. 설치 때 예시 자료를 받았다면 RAG 서베이 논문 3편으로 바로 해 볼 수 있습니다.</p>
+    </div>
+
+    <div class="ex-panel" data-panel="r-query" hidden>
+      <div class="chat">
+        <div class="bubble me"><div class="who">나</div>전력 50 µW 이하를 보고한 수신기 논문을 측정 조건과 함께 정리해줘.</div>
+        <div class="bubble ai"><div class="who">Codex</div>
+          <p>위키의 논문 7편 중 3편이 해당합니다. 원문에서 값을 다시 확인했습니다.</p>
+          <div class="tbl-scroll"><table>
+            <tr><th>논문</th><th>전력</th><th>측정 조건</th></tr>
+            <tr><td>Kim '25</td><td>21 µW (meas.) <span class="src">Tab.II p.6</span></td><td>1.0 V, 인체 팬텀</td></tr>
+            <tr><td>Lee '25*</td><td>38 µW (meas.) <span class="src">p.5</span></td><td>0.8 V, 공기 중</td></tr>
+            <tr><td>Park '24</td><td>44 µW (sim.) <span class="src">Fig.7</span></td><td>조건 미기재</td></tr>
+          </table></div>
+          <p><code>[해석]</code> Park '24는 시뮬레이션 값이라 앞의 두 편과 바로 비교하기 어렵습니다.</p>
+          <p style="color:var(--muted);font-size:13px">* 프리프린트 · 이 답을 wiki/answers/에 저장할까요?</p>
+        </div>
+      </div>
+      <p class="ex-caption">출처 없는 수치는 쓰지 않고, 측정 조건이 다르면 같은 줄에 적습니다.</p>
+    </div>
+
     <div class="ex-panel" data-panel="compare" hidden>
       <div class="chat">
         <div class="bubble me"><div class="who">나</div>$wiki-compare 저전력 수신기 논문들 효율, 전력, 데이터율로 비교표 만들어줘. 내 연구는 빼고.</div>
@@ -343,7 +395,23 @@ wiki/review/quiz-log.md            다음 복습일: 종속전원 → 내일, �
           <div class="files">wiki/answers/2026-11-28-비교표-저전력수신기.md  (+ LaTeX, CSV)</div>
         </div>
       </div>
-      <p class="ex-caption">가상의 논문 이름과 숫자입니다. 연구자용에서만 쓰는 명령입니다.</p>
+      <p class="ex-caption">가상의 논문 이름과 숫자입니다.</p>
+    </div>
+
+    <div class="ex-panel" data-panel="novelty" hidden>
+      <div class="chat">
+        <div class="bubble me"><div class="who">나</div>$wiki-novelty 수신기 클록을 전력 반송파에서 직접 뽑는 아이디어, 이미 나온 거야?</div>
+        <div class="bubble ai"><div class="who">Codex</div>
+          <p><b>위키에 있는 논문 범위 안에서</b> 확인했습니다. 위키 밖의 문헌은 확인하지 않았습니다.</p>
+          <ul>
+            <li>가장 가까운 것: Lee '25가 반송파에서 클록을 얻지만 다운링크 전용입니다 <span class="src">Fig.3 p.3</span></li>
+            <li>업링크까지 같은 클록을 쓰는 구성은 위키의 논문에서 찾지 못했습니다.</li>
+            <li>더 찾아볼 검색어 3개와 확인할 학회를 적어 두었습니다.</li>
+          </ul>
+          <div class="files">wiki/ideas/반송파-클록-공유.md   (비공개 아이디어 페이지)</div>
+        </div>
+      </div>
+      <p class="ex-caption">아이디어 페이지는 비공개로 다루고, 공유할 때 빠집니다.</p>
     </div>
 
     <div class="ex-panel" data-panel="lint" hidden>
@@ -389,7 +457,7 @@ wiki/review/quiz-log.md            다음 복습일: 종속전원 → 내일, �
     <div class="eyebrow">자주 묻는 질문</div>
     <h2>막히면 여기부터</h2>
     <details><summary>웹사이트에서 내 위키를 볼 수 있나요?</summary>
-      <p>위키를 읽고 정리하는 일은 내 학교 계정으로 로그인한 Codex가 PC 폴더에서 합니다. 대신 <a href="viewer.html"><b>위키 뷰어</b></a>에서 "위키 폴더 열기"를 누르면 목차, 페이지, 링크, 검색, 오늘 복습할 개념을 브라우저에서 바로 볼 수 있습니다. 파일은 내 브라우저 안에서만 읽고 어디에도 올라가지 않습니다. 위키가 아직 없다면 "예시 위키로 체험하기"를 눌러 보세요.</p></details>
+      <p>위키를 읽고 정리하는 일은 내 학교 계정으로 로그인한 Codex가 PC 폴더에서 합니다. 대신 <a href="viewer.html"><b>위키 뷰어</b></a>에서 "위키 폴더 열기"를 누르면 목차, 페이지, 링크, 검색, 오늘 복습할 개념을 브라우저에서 바로 볼 수 있습니다. 파일은 내 브라우저 안에서만 읽고 어디에도 올라가지 않습니다. 위키가 아직 없다면 "학습용 예시 위키 보기"나 "연구자용 예시 위키 보기"를 눌러 보세요.</p></details>
     <details><summary>Codex는 어디서 여나요?</summary>
       <p>ChatGPT 데스크톱 앱의 Codex, VS Code의 Codex 확장, 또는 터미널의 <code>codex</code> 중 편한 것을 쓰세요. 중요한 건 <b>위키 폴더를 작업 폴더로 열기</b>입니다. 그래야 <code>AGENTS.md</code> 규칙과 <code>$wiki-…</code> 명령을 읽습니다.</p></details>
     <details><summary><code>$wiki-setup</code>을 쳐도 명령이 안 보여요.</summary>
@@ -438,11 +506,13 @@ wiki/review/quiz-log.md            다음 복습일: 종속전원 → 내일, �
     study:{label:"학습용", dir:"Study-Wiki", folder:"editions/study",
       raw:'강의 슬라이드는 <code>raw/lectures/과목이름/</code>, 교재는 <code>raw/textbooks/</code>, 필기는 <code>raw/notes/</code>에 넣습니다. 파일 탐색기에서 끌어다 놓으면 됩니다.',
       setup:'이번 학기 과목을 묻고 과목 허브 페이지를 만들어 줍니다. 강의계획서가 있으면 같이 읽습니다.',
-      ask:'"3주차 테브난 등가회로 쉽게 설명해줘", "중간고사 범위로 퀴즈 5개 내줘"'},
+      ask:'"3주차 테브난 등가회로 쉽게 설명해줘", "중간고사 범위로 퀴즈 5개 내줘". 예시 자료라면 "6.034 1장을 한 장으로 요약하고 퀴즈 3개 내줘"',
+      examples:'<h3>예시 자료로 바로 시험해 보기</h3><p class="howto" style="margin:4px 0 8px">설치 중 <b>"예시 자료를 받아 둘까요?"</b>에 <b>y</b>라고 하면 MIT OpenCourseWare <b>6.034 인공지능</b>(2005) 강의자료 3개가 <code>raw/lectures/MIT-6.034-인공지능/</code>에 들어갑니다. 원 출처에서 내 PC로 직접 받고, 저자·라이선스는 위키 폴더의 <code>예시 자료 출처.md</code>에 적힙니다. 그다음 <code>$wiki-setup</code>, <code>$wiki-ingest</code>를 하면 됩니다.</p><ul class="howto" style="margin:0;padding-left:20px"><li><a href="https://ocw.mit.edu/courses/6-034-artificial-intelligence-spring-2005/7bb598caab8f1df57f35ddc4016afbb0_ch1_intro.pdf">Ch.1 Introduction</a> · <a href="https://ocw.mit.edu/courses/6-034-artificial-intelligence-spring-2005/be60e17a17a8f2be3bd6446cb976212f_ch4_learnintro.pdf">Ch.4 Learning Introduction</a> · <a href="https://ocw.mit.edu/courses/6-034-artificial-intelligence-spring-2005/894733be41a38af4bba08fbcaac52bec_ch5_mach1.pdf">Ch.5 Machine Learning I</a></li><li>Leslie Kaelbling, Tomás Lozano-Pérez, MIT OCW, CC BY-NC-SA 4.0</li><li>이미 설치했다면 위 링크에서 받아 <code>raw/lectures/MIT-6.034-인공지능/</code>에 넣어도 똑같습니다.</li></ul>'},
     research:{label:"연구자용", dir:"LLM-Wiki", folder:"editions/research",
       raw:'논문 PDF는 <code>raw/papers/</code>, 웹 자료는 <code>raw/web/</code>, 미발표 메모는 <code>raw/notes/</code>(비공개로 다룸)에 넣습니다.',
       setup:'연구 분야, 중요하게 보는 지표, 측정 조건, 내 연구 요약을 묻고 위키를 맞춰 줍니다.',
-      ask:'"전력 효율 50% 이상을 보고한 논문을 측정 조건과 함께 표로 정리해줘"'}
+      ask:'"전력 효율 50% 이상을 보고한 논문을 측정 조건과 함께 표로 정리해줘". 예시 자료라면 "세 서베이가 RAG를 어떻게 분류하는지 비교표로 정리해줘"',
+      examples:'<h3>예시 자료로 바로 시험해 보기</h3><p class="howto" style="margin:4px 0 8px">설치 중 <b>"예시 자료를 받아 둘까요?"</b>에 <b>y</b>라고 하면 RAG(검색 증강 생성) <b>서베이 논문 3편</b>이 arXiv에서 <code>raw/papers/</code>로 들어갑니다. 저자·라이선스는 위키 폴더의 <code>예시 자료 출처.md</code>에 적힙니다. 그다음 <code>$wiki-setup</code>, <code>$wiki-ingest</code>, <code>$wiki-compare</code>를 해 보세요.</p><ul class="howto" style="margin:0;padding-left:20px"><li><a href="https://arxiv.org/abs/2312.10997">Gao 외, RAG for LLMs: A Survey (arXiv:2312.10997)</a></li><li><a href="https://arxiv.org/abs/2404.10981">Huang &amp; Huang, The Survey of Retrieval-Augmented Text Generation in LLMs (arXiv:2404.10981)</a></li><li><a href="https://arxiv.org/abs/2405.06211">Fan 외, A Survey on RAG Meeting LLMs (arXiv:2405.06211)</a></li><li>이미 설치했다면 위 링크에서 PDF를 받아 <code>raw/papers/</code>에 넣어도 똑같습니다.</li></ul>'}
   };
 
   function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
@@ -475,6 +545,15 @@ wiki/review/quiz-log.md            다음 복습일: 종속전원 → 내일, �
     }
     document.getElementById("installBody").innerHTML = html;
     document.getElementById("destName").textContent = e.dir;
+    document.getElementById("exampleBox").innerHTML = e.examples;
+    var firstVisible = null, currentOk = false;
+    document.querySelectorAll("[data-ex]").forEach(function(b){
+      var show = b.dataset.for==="both" || b.dataset.for===state.ed;
+      b.hidden = !show;
+      if (show && !firstVisible) firstVisible = b;
+      if (show && b.getAttribute("aria-pressed")==="true") currentOk = true;
+    });
+    if (!currentOk && firstVisible) selectEx(firstVisible);
     document.getElementById("stepRaw").innerHTML = e.raw;
     document.getElementById("stepSetup").textContent = e.setup;
     document.getElementById("stepAsk").textContent = e.ask;
@@ -487,10 +566,7 @@ wiki/review/quiz-log.md            다음 복습일: 종속전원 → 내일, �
     if (t.dataset.ed){ state.ed = t.dataset.ed; store("llmwiki-ed", state.ed); render(); }
     else if (t.dataset.os){ state.os = t.dataset.os; render(); }
     else if (t.dataset.pick){ state.ed = t.dataset.pick; store("llmwiki-ed", state.ed); render(); document.getElementById("install").scrollIntoView(); }
-    else if (t.dataset.ex){
-      document.querySelectorAll("[data-ex]").forEach(function(b){ b.setAttribute("aria-pressed", b===t); });
-      document.querySelectorAll(".ex-panel").forEach(function(p){ p.hidden = p.dataset.panel !== t.dataset.ex; });
-    }
+    else if (t.dataset.ex){ selectEx(t); }
     else if (t.classList.contains("copy")){
       var text = t.parentNode.querySelector("pre").textContent;
       var done = function(){ t.textContent="복사됨"; t.classList.add("done"); setTimeout(function(){ t.textContent="복사"; t.classList.remove("done"); },1600); };
@@ -504,6 +580,10 @@ wiki/review/quiz-log.md            다음 복습일: 종속전원 → 내일, �
       document.documentElement.setAttribute("data-theme", next); store("llmwiki-theme", next);
     }
   });
+  function selectEx(t){
+    document.querySelectorAll("[data-ex]").forEach(function(b){ b.setAttribute("aria-pressed", b===t); });
+    document.querySelectorAll(".ex-panel").forEach(function(p){ p.hidden = p.dataset.panel !== t.dataset.ex; });
+  }
   function fallback(text){
     var ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select();
     try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta);
