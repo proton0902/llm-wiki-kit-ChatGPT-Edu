@@ -247,32 +247,52 @@ if [ "$OBSIDIAN" = "yes" ]; then
 fi
 
 # 6. 예시 자료 (선택). 파일은 이 키트에 들어 있지 않고, 원 출처(arXiv, MIT OpenCourseWare)에서 이 PC로 직접 받는다.
+#    목록은 위키 폴더의 examples/*.tsv 에 함께 복사되므로, 나중에 Codex에서 $wiki-examples 로도 받을 수 있다.
 GOT_EXAMPLES=0
-MANIFEST="$SRC/examples/$EDITION.tsv"
+CREDITS="$TMP/credits.md"
+fetch_manifest() {  # $1 = 목록 파일
+  local manifest="$1" dir file url title credit license
+  [ -f "$CREDITS" ] || printf '# 예시 자료 출처\n\n아래 원 출처에서 이 PC로 직접 내려받은 자료입니다. 개인 학습·연구 체험용으로만 쓰고, 다시 배포할 때는 각 라이선스를 따르세요.\n\n' > "$CREDITS"
+  while IFS="$(printf '\t')" read -r dir file url title credit license; do
+    case "$dir" in ''|'#'*) continue ;; esac
+    mkdir -p "$DEST/$dir"
+    if curl -fsSL -A "llm-wiki-kit-installer" "$url" -o "$DEST/$dir/$file" 2>/dev/null \
+       && [ "$(wc -c < "$DEST/$dir/$file")" -gt 10000 ]; then
+      say "  [OK] $dir/$file"
+      GOT_EXAMPLES=$((GOT_EXAMPLES + 1))
+      printf -- '- **%s/%s**: %s\n  - 저자·출처: %s\n  - 원본: %s\n  - 라이선스: %s\n' "$dir" "$file" "$title" "$credit" "$url" "$license" >> "$CREDITS"
+    else
+      rm -f "$DEST/$dir/$file"
+      say "  [안내] 받지 못했습니다: $file ($url)"
+    fi
+    case "$url" in *arxiv.org*) sleep 2 ;; esac
+  done < "$manifest"
+}
+MANIFEST="$SRC/editions/$EDITION/examples/basic.tsv"
 if [ -f "$MANIFEST" ]; then
-  N="$(grep -vc '^#' "$MANIFEST" || true)"
+  N="$(grep -c '^raw' "$MANIFEST" || true)"
   if [ "$EDITION" = "study" ]; then WHAT="MIT OpenCourseWare 인공지능 강의자료 ${N}개"; else WHAT="검색 증강 생성(RAG) 분야 공개 논문 ${N}편"; fi
   say ""
   say "예시 자료"
   if ask_yes "  바로 시험해 볼 수 있게 예시 자료(${WHAT}, 약 10MB)를 받아 둘까요?" "${LLM_WIKI_EXAMPLES:-}"; then
-    CREDITS="$TMP/credits.md"
-    printf '# 예시 자료 출처\n\n설치할 때 아래 원 출처에서 이 PC로 직접 내려받은 자료입니다. 개인 학습·연구 체험용으로만 쓰고, 다시 배포할 때는 각 라이선스를 따르세요.\n\n' > "$CREDITS"
-    while IFS="$(printf '\t')" read -r dir file url title credit license; do
-      case "$dir" in ''|'#'*) continue ;; esac
-      mkdir -p "$DEST/$dir"
-      if curl -fsSL -A "llm-wiki-kit-installer" "$url" -o "$DEST/$dir/$file" 2>/dev/null \
-         && [ "$(wc -c < "$DEST/$dir/$file")" -gt 10000 ]; then
-        say "  [OK] $dir/$file"
-        GOT_EXAMPLES=$((GOT_EXAMPLES + 1))
-        printf -- '- **%s/%s**: %s\n  - 저자·출처: %s\n  - 원본: %s\n  - 라이선스: %s\n' "$dir" "$file" "$title" "$credit" "$url" "$license" >> "$CREDITS"
-      else
-        rm -f "$DEST/$dir/$file"
-        say "  [안내] 받지 못했습니다: $file ($url)"
-      fi
-    done < "$MANIFEST"
-    [ "$GOT_EXAMPLES" -gt 0 ] && cp "$CREDITS" "$DEST/예시 자료 출처.md"
+    fetch_manifest "$MANIFEST"
   fi
 fi
+BENCH="$SRC/editions/$EDITION/examples/benchmark.tsv"
+if [ -f "$BENCH" ]; then
+  N="$(grep -c '^raw' "$BENCH" || true)"
+  say ""
+  say "벤치마크 자료 (선택): RAG 대표 논문 ${N}편, 약 60MB, 2~3분"
+  say "  한 채팅에 다 담기 어려운 양의 논문에서 위키가 얼마나 정확한지 직접 비교해 볼 때 씁니다."
+  WANT_BENCH=""
+  if [ -n "${LLM_WIKI_BENCHMARK:-}" ]; then
+    case "$LLM_WIKI_BENCHMARK" in y|Y|yes|1|true) WANT_BENCH="yes" ;; esac
+  elif [ -r /dev/tty ] && [ -z "${LLM_WIKI_NONINTERACTIVE:-}" ]; then
+    case "$(ask "  벤치마크 논문도 받을까요? (나중에 Codex에서 \$wiki-examples 로도 받을 수 있습니다) [y/N]: " n)" in y|Y|yes|예|ㅇ) WANT_BENCH="yes" ;; esac
+  fi
+  [ -n "$WANT_BENCH" ] && fetch_manifest "$BENCH"
+fi
+[ "$GOT_EXAMPLES" -gt 0 ] && cp "$CREDITS" "$DEST/예시 자료 출처.md"
 
 if [ "$EDITION" = "study" ]; then
   PUT="강의자료는 $DEST/raw/lectures/<과목>/ , 교재는 $DEST/raw/textbooks/"
