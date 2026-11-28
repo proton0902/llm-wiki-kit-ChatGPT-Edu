@@ -106,12 +106,22 @@ if [ -z "$OBSIDIAN" ]; then
   case "$(ask "$q" "$def")" in y|Y|yes|예|ㅇ) OBSIDIAN="yes" ;; *) OBSIDIAN="no" ;; esac
 fi
 
+# 진짜로 실행되는 python3인지 확인한다.
+# macOS의 /usr/bin/python3는 Xcode 도구가 없으면 설치 창만 띄우는 바로가기이므로 먼저 걸러낸다.
+has_python3() {
+  command -v python3 >/dev/null 2>&1 || return 1
+  if [ "$(uname)" = "Darwin" ] && [ "$(command -v python3)" = "/usr/bin/python3" ]; then
+    xcode-select -p >/dev/null 2>&1 || return 1
+  fi
+  python3 -c 'import sys' >/dev/null 2>&1
+}
+
 register_vault() {
   # Obsidian 보관소 목록(obsidian.json)에 이 폴더를 추가한다. 기존 파일은 .bak으로 백업.
   local cfg
   if [ "$(uname)" = "Darwin" ]; then cfg="$HOME/Library/Application Support/obsidian/obsidian.json"
   else cfg="${XDG_CONFIG_HOME:-$HOME/.config}/obsidian/obsidian.json"; fi
-  command -v python3 >/dev/null || return 1
+  has_python3 || return 1
   if pgrep -xq Obsidian 2>/dev/null || pgrep -x obsidian >/dev/null 2>&1; then
     say "  [안내] Obsidian이 실행 중이라 자동 등록을 건너뜁니다. Obsidian에서 '폴더를 보관소로 열기'로 여세요."
     return 1
@@ -152,20 +162,23 @@ if [ "$OBSIDIAN" = "yes" ]; then
     if [ -n "$OBS_APP" ] && [ "$(uname)" = "Darwin" ] && [ -z "${LLM_WIKI_NO_OPEN:-}" ]; then
       open "obsidian://open?path=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$DEST/wiki/index.md")" 2>/dev/null || true
     fi
+  else
+    say "  [안내] 자동 등록을 건너뛰었습니다. Obsidian에서 '폴더를 보관소로 열기'로 $DEST 를 여세요."
   fi
 fi
 
 # 5. 환경 점검 (설치는 하지 않고 안내만)
 say ""
 say "환경 점검"
-if command -v python3 >/dev/null; then
-  if python3 -c "import pypdf" 2>/dev/null || command -v pdftotext >/dev/null; then
-    say "  [OK] PDF 읽기 도구"
+if has_python3; then
+  if python3 -c "import pypdf" >/dev/null 2>&1 || command -v pdftotext >/dev/null 2>&1; then
+    say "  [OK] Python, PDF 읽기 도구"
   else
-    say "  [권장] PDF 읽기 도구가 없습니다:  python3 -m pip install --user pypdf"
+    say "  [선택] PDF를 쪽 번호와 함께 읽으려면:  python3 -m pip install --user pypdf"
   fi
 else
-  say "  [권장] Python 3이 없습니다. PDF·PPT를 쪽/슬라이드 번호와 함께 읽으려면 설치하세요 (https://www.python.org)."
+  say "  [선택] Python 3이 없습니다. 위키는 Python 없이도 쓸 수 있습니다."
+  say "         PDF·PPT를 쪽/슬라이드 번호와 함께 읽고 싶을 때만 설치하세요 (https://www.python.org)."
 fi
 if command -v codex >/dev/null; then
   say "  [OK] Codex CLI"
