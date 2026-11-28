@@ -130,6 +130,7 @@ footer{padding:32px 0 48px;color:var(--muted);font-size:14px}
       <a href="#examples">예시</a>
       <a href="#commands">명령</a>
       <a href="#faq">FAQ</a>
+      <a href="viewer.html"><b>위키 뷰어</b></a>
     </nav>
     <button class="theme-btn" id="themeBtn" type="button" aria-label="화면 테마 바꾸기">테마</button>
   </div>
@@ -144,6 +145,7 @@ footer{padding:32px 0 48px;color:var(--muted);font-size:14px}
     <div class="cta">
       <a class="btn primary" href="#install">설치 명령 복사하기</a>
       <a class="btn" href="#examples">어떻게 쓰는지 먼저 보기</a>
+      <a class="btn" href="viewer.html">내 위키 열어 보기 (뷰어)</a>
       <a class="btn" href="https://github.com/proton0902/llm-wiki-kit-ChatGPT-Edu">GitHub</a>
     </div>
     <div class="flow" aria-label="동작 흐름">
@@ -226,7 +228,7 @@ footer{padding:32px 0 48px;color:var(--muted);font-size:14px}
       <li><div><h3><code>$wiki-setup</code> 입력</h3><p id="stepSetup">이번 학기 과목을 묻고 과목 허브 페이지를 만들어 줍니다. 강의계획서가 있으면 같이 읽습니다.</p></div></li>
       <li><div><h3><code>$wiki-ingest</code> 입력</h3><p>넣은 자료를 하나씩 읽고 페이지를 만들어 서로 연결합니다. 자료가 많으면 "1~3주차만 먼저"처럼 나눠서 시키세요.</p></div></li>
       <li><div><h3>그냥 질문하기</h3><p id="stepAsk">"3주차 테브난 등가회로 쉽게 설명해줘", "중간고사 범위로 퀴즈 5개 내줘"</p></div></li>
-      <li><div><h3>(선택) Obsidian으로 보기</h3><p>위키 폴더를 Obsidian 보관소로 열면 페이지 사이 연결을 그래프로 볼 수 있습니다. 폴더 안의 <code>Obsidian 사용법.md</code>를 참고하세요.</p></div></li>
+      <li><div><h3>(선택) 위키 보기</h3><p>브라우저에서 바로 보려면 <a href="viewer.html">위키 뷰어</a>에서 위키 폴더를 여세요. 위키 폴더를 Obsidian 보관소로 열면 페이지 사이 연결을 그래프로 볼 수 있습니다. 폴더 안의 <code>Obsidian 사용법.md</code>를 참고하세요.</p></div></li>
     </ol>
   </div>
 </section>
@@ -386,8 +388,8 @@ wiki/review/quiz-log.md            다음 복습일: 종속전원 → 내일, �
   <div class="wrap">
     <div class="eyebrow">자주 묻는 질문</div>
     <h2>막히면 여기부터</h2>
-    <details><summary>웹사이트에서 바로 위키를 관리할 수는 없나요?</summary>
-      <p>위키는 내 PC 폴더에 있고, 읽고 정리하는 일은 내 학교 계정으로 로그인한 Codex가 합니다. 그래서 원문이 외부 서버에 올라가지 않습니다. 이 사이트는 설치와 사용법 안내용이고, 만들어진 위키는 Obsidian이나 아무 메모 앱으로 볼 수 있습니다.</p></details>
+    <details><summary>웹사이트에서 내 위키를 볼 수 있나요?</summary>
+      <p>위키를 읽고 정리하는 일은 내 학교 계정으로 로그인한 Codex가 PC 폴더에서 합니다. 대신 <a href="viewer.html"><b>위키 뷰어</b></a>에서 "위키 폴더 열기"를 누르면 목차, 페이지, 링크, 검색, 오늘 복습할 개념을 브라우저에서 바로 볼 수 있습니다. 파일은 내 브라우저 안에서만 읽고 어디에도 올라가지 않습니다. 위키가 아직 없다면 "예시 위키로 체험하기"를 눌러 보세요.</p></details>
     <details><summary>Codex는 어디서 여나요?</summary>
       <p>ChatGPT 데스크톱 앱의 Codex, VS Code의 Codex 확장, 또는 터미널의 <code>codex</code> 중 편한 것을 쓰세요. 중요한 건 <b>위키 폴더를 작업 폴더로 열기</b>입니다. 그래야 <code>AGENTS.md</code> 규칙과 <code>$wiki-…</code> 명령을 읽습니다.</p></details>
     <details><summary><code>$wiki-setup</code>을 쳐도 명령이 안 보여요.</summary>
