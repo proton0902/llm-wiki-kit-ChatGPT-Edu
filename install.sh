@@ -317,6 +317,7 @@ cat <<MSG
        \$wiki-ingest    ← 넣은 자료 소화
        $NEXT
      그다음엔 그냥 질문하면 됩니다.
+     (Codex가 "스킬을 찾을 수 없다"고 하면 작업 폴더가 이 위키 폴더인지 확인하고 Codex를 다시 시작하세요.)
   4. Obsidian 사용법: $DEST/Obsidian 사용법.md
 
 MSG

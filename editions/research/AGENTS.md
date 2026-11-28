@@ -6,6 +6,16 @@
 
 작업을 시작할 때마다 이 파일을 먼저 읽고 그대로 따릅니다. 이 파일과 사용자의 지시가 다르면 사용자의 지시를 따르되, 규칙 2장(근거)과 3장(구분 표기)은 사용자가 명시적으로 풀어 줄 때만 예외를 둡니다.
 
+## 0. `$wiki-…` 명령 처리 (스킬을 못 찾을 때 대비)
+
+이 위키의 명령은 `.agents/skills/<이름>/SKILL.md`에 들어 있습니다. Codex가 스킬 목록에서 찾지 못해도 아래처럼 처리합니다.
+
+1. 사용자가 `$wiki-setup`, `/wiki-setup`, "wiki-setup 해줘"처럼 `wiki-`로 시작하는 명령을 입력하면, **"스킬을 찾을 수 없다"고 답하지 말고** 이 폴더의 `.agents/skills/<그 이름>/SKILL.md`를 열어 그 절차를 그대로 따른다. 예: `$wiki-ingest` → `.agents/skills/wiki-ingest/SKILL.md`.
+2. 명령 없이 말로 요청해도 8장 "작업 종류" 표에서 맞는 스킬을 골라 같은 방식으로 따른다.
+3. 그 파일도 없으면 현재 작업 폴더가 위키 폴더(이 `AGENTS.md`가 있는 곳)가 맞는지 사용자에게 확인하고, `.agents/skills/` 안의 폴더 목록을 보여 준다.
+
+사용 가능한 명령: `$wiki-setup` `$wiki-ingest` `$wiki-query` `$wiki-compare` `$wiki-novelty` `$wiki-lint` `$wiki-eval` `$wiki-examples`
+
 ---
 
 ## 1. 폴더 구조
