@@ -6,6 +6,7 @@
 #
 # 옵션:  --research | --study      어떤 판을 설치할지 (안 쓰면 물어봄, 물어볼 수 없으면 연구자용)
 #        --with-obsidian           Obsidian 설치(가능하면)와 보관소 등록까지
+#        환경 변수 LLM_WIKI_INSTALL_DEPS=yes|no (Python·pypdf 자동 설치), LLM_WIKI_EXAMPLES=yes|no (예시 자료)
 #        --no-obsidian             Obsidian 관련 질문 생략
 #        경로                       설치 위치 (기본: ~/LLM-Wiki 또는 ~/Study-Wiki)
 set -euo pipefail
@@ -91,35 +92,59 @@ if [ -f "$DEST/wiki/log.md" ]; then
   sed -i.bak "s/^- 설치 | install |/- $TODAY | install |/" "$DEST/wiki/log.md" && rm -f "$DEST/wiki/log.md.bak"
 fi
 
-# 4. Obsidian (선택)
-OBS_APP=""
-if [ -d "/Applications/Obsidian.app" ] || [ -d "$HOME/Applications/Obsidian.app" ] || command -v obsidian >/dev/null; then
-  OBS_APP="yes"
-fi
-if [ -z "$OBSIDIAN" ]; then
-  if [ -n "$OBS_APP" ]; then
-    q="Obsidian 보관소로 등록하고 바로 열까요? [Y/n]: "
-  else
-    q="위키를 그래프로 보는 Obsidian(무료)을 설치할까요? [y/N]: "
-  fi
-  def="n"; [ -n "$OBS_APP" ] && def="y"
-  case "$(ask "$q" "$def")" in y|Y|yes|예|ㅇ) OBSIDIAN="yes" ;; *) OBSIDIAN="no" ;; esac
-fi
+# 예/아니오 질문. 환경 변수로 정해 두었으면 묻지 않고, 물어볼 수 없는 환경이면 "아니오".
+ask_yes() {
+  local prompt="$1" preset="${2:-}"
+  if [ -n "$preset" ]; then case "$preset" in y|Y|yes|1|true) return 0 ;; *) return 1 ;; esac; fi
+  if [ ! -r /dev/tty ] || [ -n "${LLM_WIKI_NONINTERACTIVE:-}" ]; then return 1; fi
+  case "$(ask "$prompt [Y/n]: " y)" in y|Y|yes|예|ㅇ) return 0 ;; *) return 1 ;; esac
+}
+IS_MAC=""; [ "$(uname)" = "Darwin" ] && IS_MAC="yes"
 
 # 진짜로 실행되는 python3인지 확인한다.
 # macOS의 /usr/bin/python3는 Xcode 도구가 없으면 설치 창만 띄우는 바로가기이므로 먼저 걸러낸다.
 has_python3() {
   command -v python3 >/dev/null 2>&1 || return 1
-  if [ "$(uname)" = "Darwin" ] && [ "$(command -v python3)" = "/usr/bin/python3" ]; then
+  if [ -n "$IS_MAC" ] && [ "$(command -v python3)" = "/usr/bin/python3" ]; then
     xcode-select -p >/dev/null 2>&1 || return 1
   fi
   python3 -c 'import sys' >/dev/null 2>&1
 }
 
+# 4. Obsidian (선택)
+has_obsidian() {
+  [ -d "/Applications/Obsidian.app" ] || [ -d "$HOME/Applications/Obsidian.app" ] || command -v obsidian >/dev/null 2>&1
+}
+OBS_APP=""; has_obsidian && OBS_APP="yes"
+if [ -z "$OBSIDIAN" ]; then
+  if [ -n "$OBS_APP" ]; then q="Obsidian 보관소로 등록하고 바로 열까요? [Y/n]: "
+  else q="위키를 그래프로 보는 Obsidian(무료)을 설치하고 보관소로 등록할까요? [Y/n]: "; fi
+  case "$(ask "$q" y)" in y|Y|yes|예|ㅇ) OBSIDIAN="yes" ;; *) OBSIDIAN="no" ;; esac
+fi
+
+install_obsidian_mac() {
+  # Homebrew가 있으면 brew로, 없으면 공식 배포처(GitHub)의 dmg를 받아 ~/Applications에 복사한다.
+  if command -v brew >/dev/null 2>&1; then
+    say "  Homebrew로 Obsidian을 설치합니다..."
+    brew install --cask obsidian >/dev/null 2>&1 && return 0
+  fi
+  say "  공식 배포처에서 Obsidian을 받습니다 (약 150MB)..."
+  local url mnt
+  url="$(curl -fsSL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest 2>/dev/null \
+        | grep -o '"browser_download_url": *"[^"]*Obsidian-[0-9.]*\.dmg"' | head -n 1 | sed 's/.*"\(https[^"]*\)"/\1/')" || true
+  [ -n "$url" ] || return 1
+  curl -fsSL "$url" -o "$TMP/Obsidian.dmg" || return 1
+  mnt="$(hdiutil attach -nobrowse -readonly "$TMP/Obsidian.dmg" 2>/dev/null | grep -o '/Volumes/.*' | head -n 1)" || return 1
+  [ -d "$mnt/Obsidian.app" ] || { hdiutil detach "$mnt" -quiet || true; return 1; }
+  mkdir -p "$HOME/Applications"
+  cp -R "$mnt/Obsidian.app" "$HOME/Applications/" || { hdiutil detach "$mnt" -quiet || true; return 1; }
+  hdiutil detach "$mnt" -quiet || true
+}
+
 register_vault() {
   # Obsidian 보관소 목록(obsidian.json)에 이 폴더를 추가한다. 기존 파일은 .bak으로 백업.
   local cfg
-  if [ "$(uname)" = "Darwin" ]; then cfg="$HOME/Library/Application Support/obsidian/obsidian.json"
+  if [ -n "$IS_MAC" ]; then cfg="$HOME/Library/Application Support/obsidian/obsidian.json"
   else cfg="${XDG_CONFIG_HOME:-$HOME/.config}/obsidian/obsidian.json"; fi
   has_python3 || return 1
   if pgrep -xq Obsidian 2>/dev/null || pgrep -x obsidian >/dev/null 2>&1; then
@@ -146,44 +171,107 @@ json.dump(data, open(cfg, "w", encoding="utf-8"))
 PY
 }
 
+# 5. Python·pypdf (선택). 위키는 Python 없이도 쓸 수 있고, PDF를 쪽 번호와 함께 읽을 때 쓰인다.
+# 보관소 등록에도 python3가 필요하므로 Obsidian 등록보다 먼저 한다.
+install_python() {
+  if command -v brew >/dev/null 2>&1; then
+    say "  Homebrew로 Python을 설치합니다..."
+    brew install python >/dev/null 2>&1 && hash -r && has_python3 && return 0
+  fi
+  if [ -n "$IS_MAC" ]; then
+    say "  macOS 개발자 도구(Python 포함) 설치 창을 엽니다. 창에서 '설치'를 누르고 끝날 때까지 기다려 주세요."
+    xcode-select --install >/dev/null 2>&1 || true
+    local i=0
+    while [ $i -lt 120 ] && ! has_python3; do sleep 5; i=$((i + 1)); done   # 최대 10분
+    has_python3
+    return
+  fi
+  local SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
+  if command -v apt-get >/dev/null 2>&1; then $SUDO apt-get install -y python3 python3-pip </dev/tty
+  elif command -v dnf >/dev/null 2>&1; then $SUDO dnf install -y python3 python3-pip </dev/tty
+  elif command -v pacman >/dev/null 2>&1; then $SUDO pacman -S --noconfirm python python-pip </dev/tty
+  else return 1; fi
+  hash -r; has_python3
+}
+install_pypdf() {
+  python3 -m pip install --user --quiet --disable-pip-version-check pypdf >/dev/null 2>&1 \
+    || python3 -m pip install --user --quiet --disable-pip-version-check --break-system-packages pypdf >/dev/null 2>&1 \
+    || true
+  python3 -c "import pypdf" >/dev/null 2>&1
+}
+
+say ""
+say "PDF 읽기 도구 (Python, pypdf)"
+if ! has_python3; then
+  if ask_yes "  Python 3이 없습니다. PDF를 쪽 번호와 함께 읽도록 설치할까요?" "${LLM_WIKI_INSTALL_DEPS:-}"; then
+    if install_python; then say "  [OK] Python을 설치했습니다."
+    else say "  [안내] Python 자동 설치에 실패했습니다. https://www.python.org/downloads/ 에서 받아 설치해 주세요. (위키는 Python 없이도 쓸 수 있습니다.)"; fi
+  else
+    say "  [건너뜀] Python 없이도 위키는 쓸 수 있습니다. 나중에 https://www.python.org/downloads/ 에서 설치할 수 있습니다."
+  fi
+fi
+if has_python3; then
+  if python3 -c "import pypdf" >/dev/null 2>&1 || command -v pdftotext >/dev/null 2>&1; then
+    say "  [OK] Python, PDF 읽기 도구"
+  elif ask_yes "  PDF 읽기 도구(pypdf, 약 1MB)를 설치할까요?" "${LLM_WIKI_INSTALL_DEPS:-}"; then
+    if install_pypdf; then say "  [OK] PDF 읽기 도구를 설치했습니다."
+    else say "  [안내] 자동 설치에 실패했습니다. 나중에:  python3 -m pip install --user pypdf"; fi
+  else
+    say "  [건너뜀] 나중에 설치하려면:  python3 -m pip install --user pypdf"
+  fi
+fi
+if command -v codex >/dev/null 2>&1; then
+  say "  [OK] Codex CLI"
+else
+  say "  [안내] Codex CLI가 없습니다. ChatGPT 데스크톱 앱의 Codex나 VS Code 확장으로도 쓸 수 있습니다."
+fi
+
+VAULT_OK=""
 if [ "$OBSIDIAN" = "yes" ]; then
   say ""
   say "Obsidian 설정"
   if [ -z "$OBS_APP" ]; then
-    if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null; then
-      say "  Homebrew로 Obsidian을 설치합니다..."
-      brew install --cask obsidian >/dev/null && OBS_APP="yes" || say "  [안내] 자동 설치에 실패했습니다. https://obsidian.md/download 에서 받아 주세요."
+    if [ -n "$IS_MAC" ]; then
+      if install_obsidian_mac && has_obsidian; then OBS_APP="yes"; say "  [OK] Obsidian을 설치했습니다."
+      else say "  [안내] Obsidian 자동 설치에 실패했습니다. https://obsidian.md/download 에서 받아 주세요."; fi
     else
       say "  [안내] https://obsidian.md/download 에서 Obsidian을 받아 설치해 주세요."
     fi
   fi
   if register_vault; then
+    VAULT_OK="yes"
     say "  [OK] Obsidian 보관소로 등록했습니다."
-    if [ -n "$OBS_APP" ] && [ "$(uname)" = "Darwin" ] && [ -z "${LLM_WIKI_NO_OPEN:-}" ]; then
-      open "obsidian://open?path=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$DEST/wiki/index.md")" 2>/dev/null || true
-    fi
   else
     say "  [안내] 자동 등록을 건너뛰었습니다. Obsidian에서 '폴더를 보관소로 열기'로 $DEST 를 여세요."
   fi
 fi
 
-# 5. 환경 점검 (설치는 하지 않고 안내만)
-say ""
-say "환경 점검"
-if has_python3; then
-  if python3 -c "import pypdf" >/dev/null 2>&1 || command -v pdftotext >/dev/null 2>&1; then
-    say "  [OK] Python, PDF 읽기 도구"
-  else
-    say "  [선택] PDF를 쪽 번호와 함께 읽으려면:  python3 -m pip install --user pypdf"
+# 6. 예시 자료 (선택). 파일은 이 키트에 들어 있지 않고, 원 출처(arXiv, MIT OpenCourseWare)에서 이 PC로 직접 받는다.
+GOT_EXAMPLES=0
+MANIFEST="$SRC/examples/$EDITION.tsv"
+if [ -f "$MANIFEST" ]; then
+  N="$(grep -vc '^#' "$MANIFEST" || true)"
+  if [ "$EDITION" = "study" ]; then WHAT="MIT OpenCourseWare 인공지능 강의자료 ${N}개"; else WHAT="검색 증강 생성(RAG) 분야 공개 논문 ${N}편"; fi
+  say ""
+  say "예시 자료"
+  if ask_yes "  바로 시험해 볼 수 있게 예시 자료(${WHAT}, 약 10MB)를 받아 둘까요?" "${LLM_WIKI_EXAMPLES:-}"; then
+    CREDITS="$TMP/credits.md"
+    printf '# 예시 자료 출처\n\n설치할 때 아래 원 출처에서 이 PC로 직접 내려받은 자료입니다. 개인 학습·연구 체험용으로만 쓰고, 다시 배포할 때는 각 라이선스를 따르세요.\n\n' > "$CREDITS"
+    while IFS="$(printf '\t')" read -r dir file url title credit license; do
+      case "$dir" in ''|'#'*) continue ;; esac
+      mkdir -p "$DEST/$dir"
+      if curl -fsSL -A "llm-wiki-kit-installer" "$url" -o "$DEST/$dir/$file" 2>/dev/null \
+         && [ "$(wc -c < "$DEST/$dir/$file")" -gt 10000 ]; then
+        say "  [OK] $dir/$file"
+        GOT_EXAMPLES=$((GOT_EXAMPLES + 1))
+        printf -- '- **%s/%s**: %s\n  - 저자·출처: %s\n  - 원본: %s\n  - 라이선스: %s\n' "$dir" "$file" "$title" "$credit" "$url" "$license" >> "$CREDITS"
+      else
+        rm -f "$DEST/$dir/$file"
+        say "  [안내] 받지 못했습니다: $file ($url)"
+      fi
+    done < "$MANIFEST"
+    [ "$GOT_EXAMPLES" -gt 0 ] && cp "$CREDITS" "$DEST/예시 자료 출처.md"
   fi
-else
-  say "  [선택] Python 3이 없습니다. 위키는 Python 없이도 쓸 수 있습니다."
-  say "         PDF·PPT를 쪽/슬라이드 번호와 함께 읽고 싶을 때만 설치하세요 (https://www.python.org)."
-fi
-if command -v codex >/dev/null; then
-  say "  [OK] Codex CLI"
-else
-  say "  [안내] Codex CLI가 없습니다. ChatGPT 데스크톱 앱의 Codex나 VS Code 확장으로도 쓸 수 있습니다."
 fi
 
 if [ "$EDITION" = "study" ]; then
@@ -193,6 +281,7 @@ else
   PUT="논문 PDF는 $DEST/raw/papers/"
   NEXT='$wiki-compare   ← 선행연구 비교표,   $wiki-novelty ← 아이디어 중복 확인'
 fi
+[ "$GOT_EXAMPLES" -gt 0 ] && PUT="(예시 자료가 이미 들어 있으니 이 단계는 건너뛰어도 됩니다.) $PUT"
 
 cat <<MSG
 
@@ -212,6 +301,11 @@ cat <<MSG
 
 MSG
 
-if [ "$(uname)" = "Darwin" ] && [ -z "${LLM_WIKI_NO_OPEN:-}" ] && [ "$OBSIDIAN" != "yes" ]; then
-  open "$DEST" 2>/dev/null || true
+if [ -n "$IS_MAC" ] && [ -z "${LLM_WIKI_NO_OPEN:-}" ]; then
+  if [ -n "$VAULT_OK" ] && [ -n "$OBS_APP" ]; then
+    open "obsidian://open?path=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$DEST/wiki/index.md")" 2>/dev/null || true
+  else
+    open "$DEST" 2>/dev/null || true
+  fi
 fi
+exit 0

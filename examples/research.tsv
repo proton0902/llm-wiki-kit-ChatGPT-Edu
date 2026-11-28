@@ -1,0 +1,5 @@
+# 예시 자료 목록 (설치 스크립트가 원 출처에서 사용자 PC로 직접 내려받습니다. 이 저장소에는 파일을 담지 않습니다.)
+# 형식: 저장폴더<TAB>파일명<TAB>원본URL<TAB>제목<TAB>저자·출처<TAB>라이선스
+raw/papers	gao2023-rag-survey.pdf	https://arxiv.org/pdf/2312.10997v5	Retrieval-Augmented Generation for Large Language Models: A Survey	Yunfan Gao, Yun Xiong, Xinyu Gao 외. arXiv:2312.10997 (2023, v5 2024)	arXiv.org perpetual non-exclusive license
+raw/papers	huang2024-rag-text-generation-survey.pdf	https://arxiv.org/pdf/2404.10981v2	The Survey of Retrieval-Augmented Text Generation in Large Language Models	Yizheng Huang, Jimmy X. Huang. arXiv:2404.10981 (2024)	arXiv.org perpetual non-exclusive license
+raw/papers	fan2024-rag-meets-llms-survey.pdf	https://arxiv.org/pdf/2405.06211v2	A Survey on RAG Meeting LLMs: Towards Retrieval-Augmented Large Language Models	Wenqi Fan, Yujuan Ding, Liangbo Ning 외. arXiv:2405.06211 (2024)	arXiv.org perpetual non-exclusive license
