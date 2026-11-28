@@ -73,7 +73,7 @@ if ($Obsidian -eq "yes") {
   if (-not $ObsExe) {
     if (Get-Command winget -ErrorAction SilentlyContinue) {
       Write-Host "  winget으로 Obsidian을 설치합니다..."
-      winget install -e --id Obsidian.Obsidian
+      try { $ErrorActionPreference = "Continue"; winget install -e --id Obsidian.Obsidian } catch { } finally { $ErrorActionPreference = "Stop" }
       $ObsExe = @("$env:LOCALAPPDATA\Programs\Obsidian\Obsidian.exe", "$env:LOCALAPPDATA\Obsidian\Obsidian.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
     }
     if (-not $ObsExe) { Write-Host "  [안내] https://obsidian.md/download 에서 Obsidian을 받아 설치해 주세요." }
@@ -102,14 +102,41 @@ if ($Obsidian -eq "yes") {
   }
 }
 
+# 환경 점검: 안내만 하고, 어떤 경우에도 설치를 멈추지 않는다.
+# Windows의 python.exe는 Microsoft Store 바로가기(App execution alias)일 수 있다.
+# 이 가짜 python은 "Python was not found"를 stderr로 출력하고 실패하므로, 실제로 실행해 보고 판단한다.
+function Invoke-Quiet($exe, [string[]]$argv) {
+  $old = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+  try {
+    $out = & $exe @argv 2>$null
+    return [pscustomobject]@{ Ok = ($LASTEXITCODE -eq 0); Out = ($out | Out-String).Trim() }
+  } catch { return [pscustomobject]@{ Ok = $false; Out = "" } }
+  finally { $ErrorActionPreference = $old }
+}
 Write-Host "`n환경 점검"
-$py = Get-Command python -ErrorAction SilentlyContinue
-if (-not $py) { $py = Get-Command py -ErrorAction SilentlyContinue }
-if ($py) {
-  & $py.Source -c "import pypdf" 2>$null
-  if ($LASTEXITCODE -eq 0) { Write-Host "  [OK] PDF 읽기 도구" }
-  else { Write-Host "  [권장] PDF 읽기 도구가 없습니다:  python -m pip install --user pypdf" }
-} else { Write-Host "  [권장] Python이 없습니다:  winget install Python.Python.3.12" }
+try {
+  $Py = $null; $PyArgs = @(); $StoreStub = $false
+  $cands = New-Object System.Collections.ArrayList
+  foreach ($n in @("python", "python3")) {
+    foreach ($g in @(Get-Command $n -CommandType Application -All -ErrorAction SilentlyContinue)) { [void]$cands.Add(@{ Exe = $g.Source; Pre = @() }) }
+  }
+  foreach ($g in @(Get-Command py -CommandType Application -ErrorAction SilentlyContinue)) { [void]$cands.Add(@{ Exe = $g.Source; Pre = @("-3") }) }
+  foreach ($c in $cands) {
+    $exe = $c.Exe; $pre = [string[]]$c.Pre
+    $r = Invoke-Quiet $exe ($pre + @("-c", "import sys; print(sys.version_info[0])"))
+    if ($r.Ok -and $r.Out -match '3$') { $Py = $exe; $PyArgs = $pre; break }
+    if ($exe -like "*\WindowsApps\*") { $StoreStub = $true }
+  }
+  if ($Py) {
+    $PyName = if ($PyArgs.Count -gt 0) { "py -3" } else { "python" }
+    if ((Invoke-Quiet $Py ($PyArgs + @("-c", "import pypdf"))).Ok) { Write-Host "  [OK] Python, PDF 읽기 도구" }
+    else { Write-Host "  [선택] PDF를 쪽 번호와 함께 읽으려면:  $PyName -m pip install --user pypdf" }
+  } else {
+    Write-Host "  [선택] Python이 없습니다. 위키는 Python 없이도 쓸 수 있습니다."
+    Write-Host "         PDF·PPT를 쪽/슬라이드 번호와 함께 읽고 싶을 때만 설치하세요:  winget install Python.Python.3.12"
+    if ($StoreStub) { Write-Host "         (지금 보이는 python은 Microsoft Store 바로가기라서 실제 Python이 아닙니다.)" }
+  }
+} catch { Write-Host "  [안내] Python 확인을 건너뜁니다. (위키 사용에는 지장이 없습니다.)" }
 if (Get-Command codex -ErrorAction SilentlyContinue) { Write-Host "  [OK] Codex CLI" }
 else { Write-Host "  [안내] Codex CLI가 없습니다. ChatGPT 데스크톱 앱의 Codex나 VS Code 확장으로도 쓸 수 있습니다." }
 
