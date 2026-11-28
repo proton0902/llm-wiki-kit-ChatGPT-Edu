@@ -90,7 +90,12 @@ if ((Test-Path $Dest) -and (Get-ChildItem -Force $Dest | Select-Object -First 1)
 }
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-$ExampleRows = @()
+$ExampleRows = @(); $BenchRows = @()
+function Read-Manifest($Path) {
+  if (-not (Test-Path $Path)) { return @() }
+  @([IO.File]::ReadAllLines($Path, [Text.Encoding]::UTF8) | Where-Object { $_ -and -not $_.StartsWith("#") } |
+    ForEach-Object { $f = $_ -split "`t"; if ($f.Count -ge 6) { [pscustomobject]@{ Dir = $f[0]; File = $f[1]; Url = $f[2]; Title = $f[3]; Credit = $f[4]; License = $f[5] } } })
+}
 $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("llmwiki-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 try {
@@ -111,11 +116,8 @@ try {
     $Text = [IO.File]::ReadAllText($Log, [Text.Encoding]::UTF8) -replace "(?m)^- 설치 \| install \|", "- $Today | install |"
     [IO.File]::WriteAllText($Log, $Text, (New-Object Text.UTF8Encoding $false))
   }
-  $Manifest = Join-Path $Src "examples\$Edition.tsv"
-  if (Test-Path $Manifest) {
-    $ExampleRows = @([IO.File]::ReadAllLines($Manifest, [Text.Encoding]::UTF8) | Where-Object { $_ -and -not $_.StartsWith("#") } |
-      ForEach-Object { $f = $_ -split "`t"; if ($f.Count -ge 6) { [pscustomobject]@{ Dir = $f[0]; File = $f[1]; Url = $f[2]; Title = $f[3]; Credit = $f[4]; License = $f[5] } } })
-  }
+  $ExampleRows = @(Read-Manifest (Join-Path $EDir "examples\basic.tsv"))
+  $BenchRows = @(Read-Manifest (Join-Path $EDir "examples\benchmark.tsv"))
 } finally { Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue }
 
 # ---------------------------------------------------------------- Obsidian (선택)
@@ -206,25 +208,36 @@ else { Write-Host "  [안내] Codex CLI가 없습니다. ChatGPT 데스크톱 �
 # ---------------------------------------------------------------- 예시 자료 (선택)
 # 파일은 이 키트에 들어 있지 않고, 원 출처(arXiv, MIT OpenCourseWare)에서 사용자 PC로 직접 받는다.
 $GotExamples = 0
+$Lines = @("# 예시 자료 출처", "", "아래 원 출처에서 이 PC로 직접 내려받은 자료입니다. 개인 학습·연구 체험용으로만 쓰고, 다시 배포할 때는 각 라이선스를 따르세요.", "")
+function Get-ExampleRows($Rows) {
+  foreach ($r in $Rows) {
+    try {
+      $Dir = Join-Path $Dest ($r.Dir -replace '/', '\')
+      New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+      $Out = Join-Path $Dir $r.File
+      Invoke-WebRequest -UseBasicParsing -UserAgent "llm-wiki-kit-installer" $r.Url -OutFile $Out
+      if ((Get-Item $Out).Length -gt 10000) { Write-Host "  [OK] $($r.Dir)/$($r.File)" }
+      else { Remove-Item $Out -Force; throw "too small" }
+      Write-Output "- **$($r.Dir)/$($r.File)**: $($r.Title)"; Write-Output "  - 저자·출처: $($r.Credit)"; Write-Output "  - 원본: $($r.Url)"; Write-Output "  - 라이선스: $($r.License)"
+    } catch { Write-Host "  [안내] 받지 못했습니다: $($r.File) ($($r.Url))" }
+    if ($r.Url -match 'arxiv\.org') { Start-Sleep -Seconds 2 }
+  }
+}
 if ($ExampleRows.Count -gt 0) {
   $What = if ($Edition -eq "study") { "MIT OpenCourseWare 인공지능 강의자료 $($ExampleRows.Count)개" } else { "검색 증강 생성(RAG) 분야 공개 논문 $($ExampleRows.Count)편" }
   Write-Host "`n예시 자료"
-  if (AskYes "  바로 시험해 볼 수 있게 예시 자료($What, 약 10MB)를 받아 둘까요?" $env:LLM_WIKI_EXAMPLES) {
-    $Lines = @("# 예시 자료 출처", "", "설치할 때 아래 원 출처에서 이 PC로 직접 내려받은 자료입니다. 개인 학습·연구 체험용으로만 쓰고, 다시 배포할 때는 각 라이선스를 따르세요.", "")
-    foreach ($r in $ExampleRows) {
-      try {
-        $Dir = Join-Path $Dest ($r.Dir -replace '/', '\')
-        New-Item -ItemType Directory -Force -Path $Dir | Out-Null
-        $Out = Join-Path $Dir $r.File
-        Invoke-WebRequest -UseBasicParsing -UserAgent "llm-wiki-kit-installer" $r.Url -OutFile $Out
-        if ((Get-Item $Out).Length -gt 10000) { Write-Host "  [OK] $($r.Dir)/$($r.File)"; $GotExamples++ }
-        else { Remove-Item $Out -Force; throw "too small" }
-        $Lines += @("- **$($r.Dir)/$($r.File)**: $($r.Title)", "  - 저자·출처: $($r.Credit)", "  - 원본: $($r.Url)", "  - 라이선스: $($r.License)")
-      } catch { Write-Host "  [안내] 받지 못했습니다: $($r.File) ($($r.Url))" }
-    }
-    if ($GotExamples -gt 0) { [IO.File]::WriteAllLines((Join-Path $Dest "예시 자료 출처.md"), $Lines, (New-Object Text.UTF8Encoding $false)) }
-  }
+  if (AskYes "  바로 시험해 볼 수 있게 예시 자료($What, 약 10MB)를 받아 둘까요?" $env:LLM_WIKI_EXAMPLES) { $Lines += @(Get-ExampleRows $ExampleRows) }
 }
+if ($BenchRows.Count -gt 0) {
+  Write-Host "`n벤치마크 자료 (선택): RAG 대표 논문 $($BenchRows.Count)편, 약 60MB, 2~3분"
+  Write-Host "  한 채팅에 다 담기 어려운 양의 논문에서 위키가 얼마나 정확한지 직접 비교해 볼 때 씁니다."
+  $WantBench = $false
+  if ($env:LLM_WIKI_BENCHMARK) { $WantBench = $env:LLM_WIKI_BENCHMARK -match '^(y|yes|1|true)$' }
+  elseif ($Interactive) { $WantBench = (Ask "  벤치마크 논문도 받을까요? (나중에 Codex에서 `$wiki-examples 로도 받을 수 있습니다) [y/N]" "n") -match '^(y|yes|예|ㅇ)' }
+  if ($WantBench) { $Lines += @(Get-ExampleRows $BenchRows) }
+}
+$GotExamples = @($Lines | Where-Object { $_.StartsWith("- **") }).Count
+if ($GotExamples -gt 0) { [IO.File]::WriteAllLines((Join-Path $Dest "예시 자료 출처.md"), $Lines, (New-Object Text.UTF8Encoding $false)) }
 
 if ($Edition -eq "study") {
   $Put = "강의자료는 $Dest\raw\lectures\<과목>\ , 교재는 $Dest\raw\textbooks\"

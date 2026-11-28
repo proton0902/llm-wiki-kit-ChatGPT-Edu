@@ -17,7 +17,7 @@ ChatGPT Edu의 **Codex**가 논문, 강의자료, 교재를 읽고, 요약하고
 | 출처 표기 | 논문 쪽·그림·표 (`p.5`, `Fig. 3`) | 슬라이드·교재 쪽 (`s.12`, `p.87`) |
 | 특별 규칙 | 사실 / `[저자 주장]` / `[해석]` 구분, 측정 조건 없는 비교 금지, sim·meas 구분, 논문 버전 관리 | 수업 표기 우선, 교수님 강조(⭐) 표시, **채점 과제는 답 대신 힌트** |
 | 전용 명령 | `$wiki-compare` 선행연구 비교표, `$wiki-novelty` 아이디어 중복 확인 | `$wiki-quiz` 퀴즈와 간격 반복 복습, `$wiki-exam` 시험 대비 요약 |
-| 공통 명령 | `$wiki-setup` `$wiki-ingest` `$wiki-query` `$wiki-lint` `$wiki-eval` | 같음 |
+| 공통 명령 | `$wiki-setup` `$wiki-ingest` `$wiki-query` `$wiki-lint` `$wiki-eval` `$wiki-examples` | 같음 |
 
 ---
 
@@ -62,11 +62,12 @@ https://github.com/proton0902/llm-wiki-kit-ChatGPT-Edu 의 README를 읽고, 학
 
 ### 예시 자료
 
-설치 중 "예시 자료를 받아 둘까요?"에 예라고 하면 아래 파일을 **원 출처에서 내 PC로 직접** 받습니다. 이 저장소에는 파일이 들어 있지 않고 목록([`examples/`](examples/))만 있습니다. 받은 뒤에는 위키 폴더의 `예시 자료 출처.md`에 저자, 원본 주소, 라이선스가 기록됩니다.
+설치 중 "예시 자료를 받아 둘까요?"에 예라고 하면 아래 파일을 **원 출처에서 내 PC로 직접** 받습니다. 이 저장소에는 파일이 들어 있지 않고 목록(각 판의 `examples/` 폴더: [연구자용](editions/research/examples/), [학습용](editions/study/examples/))만 있습니다. 설치할 때 받지 않았어도 나중에 Codex에서 **`$wiki-examples`** 라고 입력하면 같은 자료를 받습니다. 받은 뒤에는 위키 폴더의 `예시 자료 출처.md`에 저자, 원본 주소, 라이선스가 기록됩니다.
 
 | 판 | 자료 | 저장 위치 | 라이선스 |
 | --- | --- | --- | --- |
 | 연구자용 | 검색 증강 생성(RAG) 서베이 논문 3편 (Gao 외 2023, Huang & Huang 2024, Fan 외 2024), arXiv | `raw/papers/` | arXiv 비독점 배포 라이선스 (arXiv에서 무료 공개) |
+| 연구자용 (벤치마크, 선택) | RAG 대표 논문 21편 (REALM, RAG, DPR, FiD, RETRO, Atlas, HyDE, IRCoT, REPLUG, In-Context RALM, FLARE, Lost in the Middle, RGB, Ragas, Self-RAG, ARES, CRAG, RAPTOR, RAFT, GraphRAG, LightRAG), arXiv. 기본 3편과 합치면 24편으로 한 채팅에 다 담기 어려운 양입니다 | `raw/papers/` | 각 논문의 arXiv 라이선스 |
 | 학습용 | MIT OpenCourseWare 6.034 Artificial Intelligence (Spring 2005, Kaelbling·Lozano-Pérez) 강의자료 1·4·5장 | `raw/lectures/MIT-6.034-인공지능/` | CC BY-NC-SA 4.0 |
 
 예시로 해보기: Codex에서 `$wiki-ingest`를 입력한 뒤, 연구자용은 "세 서베이가 RAG를 어떻게 분류하는지 비교해줘"나 `$wiki-compare`, 학습용은 "1장에서 말하는 AI의 정의를 쉽게 설명해줘"나 `$wiki-quiz`를 시도해 보세요.
@@ -99,6 +100,7 @@ https://github.com/proton0902/llm-wiki-kit-ChatGPT-Edu 의 README를 읽고, 학
 | `$wiki-quiz` | – | 퀴즈, 오답노트, 간격 반복 복습 일정 |
 | `$wiki-exam` | – | 시험 범위 요약, 공식 정리, 예상 문제, 공부 계획 |
 | `$wiki-eval` | 정답 세트로 정확도 측정 | 같음 |
+| `$wiki-examples` | 예시 자료 받기 (기본 3편, 벤치마크 21편) | 예시 자료 받기 (MIT 강의자료 3개) |
 
 `$` 대신 `/skills` 로 목록에서 고를 수도 있고, 명령 없이 "이 논문 소화해줘"처럼 말해도 됩니다.
 
@@ -136,7 +138,7 @@ LLM Wiki는 한 번 소화한 내용이 페이지로 남아 다음 질문, 다�
 │   ├── papers/ concepts/ metrics/      │   ├── courses/ lectures/ chapters/
 │   ├── groups/ questions/ ideas/       │   ├── concepts/ problems/
 │   ├── answers/ references.bib         │   └── review/  (퀴즈 기록, 오답노트)
-├── .agents/skills/  명령 7개           ├── .agents/skills/  명령 7개
+├── .agents/skills/  명령 8개           ├── .agents/skills/  명령 8개
 ├── scripts/  통계·PDF 추출             ├── scripts/  통계·PDF·PPT 추출
 ├── eval/     정확도 검증 키트          ├── eval/
 └── Obsidian 사용법.md                  └── Obsidian 사용법.md

@@ -157,6 +157,7 @@ mastery: new        # new | learning | mastered (퀴즈 결과로 갱신)
 | "중간고사 대비 요약해줘" | 시험 대비 | `$wiki-exam` |
 | "위키 검진해줘" | 건강검진 | `$wiki-lint` |
 | "정확도 테스트 돌려줘" | 정확도 검증 | `$wiki-eval` |
+| "예시 자료 받아줘" | 예시 자료 내려받기 | `$wiki-examples` |
 
 모든 작업 뒤 `wiki/log.md` 맨 아래에 한 줄 추가: `- YYYY-MM-DD | 작업종류 | 대상 | 결과 한 줄`
 
