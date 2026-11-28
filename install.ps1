@@ -5,7 +5,9 @@
 #
 # 환경 변수로 미리 정할 수 있음:  $env:LLM_WIKI_EDITION = "research" | "study"
 #                                 $env:LLM_WIKI_DIR = "D:\MyWiki"
-#                                 $env:LLM_WIKI_OBSIDIAN = "yes" | "no"
+#                                 $env:LLM_WIKI_OBSIDIAN = "yes" | "no"       (Obsidian 설치·등록)
+#                                 $env:LLM_WIKI_INSTALL_DEPS = "yes" | "no"   (Python·pypdf 자동 설치)
+#                                 $env:LLM_WIKI_EXAMPLES = "yes" | "no"       (예시 자료 내려받기)
 & {
 $ErrorActionPreference = "Stop"
 $Owner = "proton0902"; $Repo = "llm-wiki-kit-ChatGPT-Edu"; $Branch = "main"
@@ -18,6 +20,55 @@ function Ask($prompt, $default) {
   if (-not $Interactive) { return $default }
   try { $a = Read-Host $prompt } catch { $a = "" }
   if ([string]::IsNullOrWhiteSpace($a)) { return $default } else { return $a.Trim() }
+}
+# 예/아니오 질문. 환경 변수로 정해 두었으면 묻지 않고, 물어볼 수 없는 환경이면 "아니오".
+function AskYes($prompt, $envValue) {
+  if ($envValue) { return ($envValue -match '^(y|yes|1|true)$') }
+  if (-not $Interactive) { return $false }
+  return ((Ask "$prompt [Y/n]" "y") -match '^(y|yes|예|ㅇ)')
+}
+# 외부 프로그램을 실행하되, 경고(stderr) 때문에 설치가 멈추지 않게 한다.
+function Invoke-Quiet($exe, [string[]]$argv) {
+  $old = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+  try {
+    $out = & $exe @argv 2>$null
+    return [pscustomobject]@{ Ok = ($LASTEXITCODE -eq 0); Out = ($out | Out-String).Trim() }
+  } catch { return [pscustomobject]@{ Ok = $false; Out = "" } }
+  finally { $ErrorActionPreference = $old }
+}
+function Invoke-Loud($exe, [string[]]$argv) {
+  $old = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+  try { & $exe @argv | Out-Host; return ($LASTEXITCODE -eq 0) } catch { return $false }
+  finally { $ErrorActionPreference = $old }
+}
+function Update-PathFromRegistry {
+  $m = [Environment]::GetEnvironmentVariable("Path", "Machine"); $u = [Environment]::GetEnvironmentVariable("Path", "User")
+  $env:Path = (@($m, $u) | Where-Object { $_ }) -join ";"
+}
+# 실제로 동작하는 Python 3를 찾는다.
+# Windows의 python.exe는 Microsoft Store 바로가기(App execution alias)일 수 있는데,
+# 이 가짜 python은 "Python was not found"만 출력하고 실패하므로 직접 실행해 보고 판단한다.
+function Find-Python {
+  $res = @{ Exe = $null; Pre = @(); StoreStub = $false }
+  $cands = New-Object System.Collections.ArrayList
+  foreach ($n in @("python", "python3")) {
+    foreach ($g in @(Get-Command $n -CommandType Application -All -ErrorAction SilentlyContinue)) { [void]$cands.Add(@{ Exe = $g.Source; Pre = @() }) }
+  }
+  foreach ($g in @(Get-Command py -CommandType Application -ErrorAction SilentlyContinue)) { [void]$cands.Add(@{ Exe = $g.Source; Pre = @("-3") }) }
+  foreach ($f in @(Get-ChildItem "$env:LOCALAPPDATA\Programs\Python\Python3*\python.exe", "$env:ProgramFiles\Python3*\python.exe" -ErrorAction SilentlyContinue)) {
+    [void]$cands.Add(@{ Exe = $f.FullName; Pre = @() })
+  }
+  foreach ($c in $cands) {
+    $exe = $c.Exe; $pre = [string[]]$c.Pre
+    $r = Invoke-Quiet $exe ($pre + @("-c", "import sys; print(sys.version_info[0])"))
+    if ($r.Ok -and $r.Out -match '3$') { $res.Exe = $exe; $res.Pre = $pre; return $res }
+    if ($exe -like "*\WindowsApps\*") { $res.StoreStub = $true }
+  }
+  return $res
+}
+function Find-Obsidian {
+  @("$env:LOCALAPPDATA\Programs\Obsidian\Obsidian.exe", "$env:LOCALAPPDATA\Obsidian\Obsidian.exe", "$env:ProgramFiles\Obsidian\Obsidian.exe") |
+    Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 
 Write-Host "`nLLM Wiki Kit 설치를 시작합니다."
@@ -38,13 +89,14 @@ if ((Test-Path $Dest) -and (Get-ChildItem -Force $Dest | Select-Object -First 1)
   Fail "'$Dest' 폴더가 이미 있고 비어 있지 않습니다. `$env:LLM_WIKI_DIR 로 다른 위치를 지정하세요."; return
 }
 
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+$ExampleRows = @()
 $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("llmwiki-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 try {
   if ($env:LLM_WIKI_SRC) { $Src = $env:LLM_WIKI_SRC }
   else {
     $Zip = Join-Path $Tmp "kit.zip"
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/$Owner/$Repo/zip/refs/heads/$Branch" -OutFile $Zip
     Expand-Archive -Path $Zip -DestinationPath $Tmp
     $Src = (Get-ChildItem -Directory $Tmp | Select-Object -First 1).FullName
@@ -59,24 +111,45 @@ try {
     $Text = [IO.File]::ReadAllText($Log, [Text.Encoding]::UTF8) -replace "(?m)^- 설치 \| install \|", "- $Today | install |"
     [IO.File]::WriteAllText($Log, $Text, (New-Object Text.UTF8Encoding $false))
   }
+  $Manifest = Join-Path $Src "examples\$Edition.tsv"
+  if (Test-Path $Manifest) {
+    $ExampleRows = @([IO.File]::ReadAllLines($Manifest, [Text.Encoding]::UTF8) | Where-Object { $_ -and -not $_.StartsWith("#") } |
+      ForEach-Object { $f = $_ -split "`t"; if ($f.Count -ge 6) { [pscustomobject]@{ Dir = $f[0]; File = $f[1]; Url = $f[2]; Title = $f[3]; Credit = $f[4]; License = $f[5] } } })
+  }
 } finally { Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue }
 
-# Obsidian (선택)
-$ObsExe = @("$env:LOCALAPPDATA\Programs\Obsidian\Obsidian.exe", "$env:LOCALAPPDATA\Obsidian\Obsidian.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+# ---------------------------------------------------------------- Obsidian (선택)
+$ObsExe = Find-Obsidian
 if (-not $Obsidian) {
-  if ($ObsExe) { $q = "Obsidian 보관소로 등록하고 바로 열까요? [Y/n]"; $def = "y" }
-  else { $q = "위키를 그래프로 보는 Obsidian(무료)을 설치할까요? [y/N]"; $def = "n" }
-  $Obsidian = if ((Ask $q $def) -match '^(y|yes|예|ㅇ)') { "yes" } else { "no" }
+  if ($ObsExe) { $q = "Obsidian 보관소로 등록하고 바로 열까요? [Y/n]" }
+  else { $q = "위키를 그래프로 보는 Obsidian(무료)을 설치하고 보관소로 등록할까요? [Y/n]" }
+  $Obsidian = if ((Ask $q "y") -match '^(y|yes|예|ㅇ)') { "yes" } else { "no" }
 }
 if ($Obsidian -eq "yes") {
   Write-Host "`nObsidian 설정"
   if (-not $ObsExe) {
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-      Write-Host "  winget으로 Obsidian을 설치합니다..."
-      try { $ErrorActionPreference = "Continue"; winget install -e --id Obsidian.Obsidian } catch { } finally { $ErrorActionPreference = "Stop" }
-      $ObsExe = @("$env:LOCALAPPDATA\Programs\Obsidian\Obsidian.exe", "$env:LOCALAPPDATA\Obsidian\Obsidian.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+      Write-Host "  winget으로 Obsidian을 설치합니다 (1~2분)..."
+      [void](Invoke-Loud "winget" @("install", "-e", "--id", "Obsidian.Obsidian", "--silent", "--accept-package-agreements", "--accept-source-agreements"))
+      $ObsExe = Find-Obsidian
     }
-    if (-not $ObsExe) { Write-Host "  [안내] https://obsidian.md/download 에서 Obsidian을 받아 설치해 주세요." }
+    if (-not $ObsExe) {
+      # winget이 없거나 실패하면 공식 배포처(GitHub)에서 설치 파일을 받아 조용히 설치한다.
+      try {
+        Write-Host "  공식 배포처에서 Obsidian 설치 파일을 받습니다..."
+        $rel = Invoke-RestMethod -UseBasicParsing "https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest"
+        $asset = $rel.assets | Where-Object { $_.name -match '^Obsidian-[\d.]+\.exe$' } | Select-Object -First 1
+        if ($asset) {
+          $Setup = Join-Path ([System.IO.Path]::GetTempPath()) $asset.name
+          Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile $Setup
+          Start-Process -FilePath $Setup -ArgumentList "/S" -Wait
+          Remove-Item $Setup -Force -ErrorAction SilentlyContinue
+          $ObsExe = Find-Obsidian
+        }
+      } catch { }
+    }
+    if ($ObsExe) { Write-Host "  [OK] Obsidian을 설치했습니다." }
+    else { Write-Host "  [안내] Obsidian 자동 설치에 실패했습니다. https://obsidian.md/download 에서 받아 설치해 주세요." }
   }
   if (Get-Process Obsidian -ErrorAction SilentlyContinue) {
     Write-Host "  [안내] Obsidian이 실행 중이라 자동 등록을 건너뜁니다. Obsidian에서 '폴더를 보관소로 열기'로 여세요."
@@ -95,50 +168,63 @@ if ($Obsidian -eq "yes") {
       }
       [IO.File]::WriteAllText($Cfg, ($Data | ConvertTo-Json -Depth 10 -Compress), (New-Object Text.UTF8Encoding $false))
       Write-Host "  [OK] Obsidian 보관소로 등록했습니다."
-      if ($ObsExe -and -not $env:LLM_WIKI_NO_OPEN) {
-        Start-Process ("obsidian://open?path=" + [uri]::EscapeDataString((Join-Path $Full "wiki\index.md")))
-      }
     } catch { Write-Host "  [안내] 자동 등록에 실패했습니다. Obsidian에서 '폴더를 보관소로 열기'로 여세요." }
   }
 }
 
-# 환경 점검: 안내만 하고, 어떤 경우에도 설치를 멈추지 않는다.
-# Windows의 python.exe는 Microsoft Store 바로가기(App execution alias)일 수 있다.
-# 이 가짜 python은 "Python was not found"를 stderr로 출력하고 실패하므로, 실제로 실행해 보고 판단한다.
-function Invoke-Quiet($exe, [string[]]$argv) {
-  $old = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-  try {
-    $out = & $exe @argv 2>$null
-    return [pscustomobject]@{ Ok = ($LASTEXITCODE -eq 0); Out = ($out | Out-String).Trim() }
-  } catch { return [pscustomobject]@{ Ok = $false; Out = "" } }
-  finally { $ErrorActionPreference = $old }
-}
-Write-Host "`n환경 점검"
+# ---------------------------------------------------------------- Python·pypdf (선택)
+# 위키는 Python 없이도 쓸 수 있다. PDF를 쪽 번호와 함께 정확히 읽을 때 쓰인다.
+Write-Host "`nPDF 읽기 도구 (Python, pypdf)"
 try {
-  $Py = $null; $PyArgs = @(); $StoreStub = $false
-  $cands = New-Object System.Collections.ArrayList
-  foreach ($n in @("python", "python3")) {
-    foreach ($g in @(Get-Command $n -CommandType Application -All -ErrorAction SilentlyContinue)) { [void]$cands.Add(@{ Exe = $g.Source; Pre = @() }) }
+  $P = Find-Python
+  if (-not $P.Exe) {
+    if ($P.StoreStub) { Write-Host "  지금 보이는 python은 Microsoft Store 바로가기라서 실제 Python이 아닙니다." }
+    if (AskYes "  Python이 없습니다. PDF를 쪽 번호와 함께 읽도록 Python을 설치할까요? (약 30MB, 1~2분)" $env:LLM_WIKI_INSTALL_DEPS) {
+      if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-Host "  winget으로 Python을 설치합니다..."
+        [void](Invoke-Loud "winget" @("install", "-e", "--id", "Python.Python.3.12", "--scope", "user", "--silent", "--accept-package-agreements", "--accept-source-agreements"))
+        Update-PathFromRegistry
+        $P = Find-Python
+      }
+      if (-not $P.Exe) { Write-Host "  [안내] Python 자동 설치에 실패했습니다. https://www.python.org/downloads/ 에서 받아 설치해 주세요. (위키는 Python 없이도 쓸 수 있습니다.)" }
+      else { Write-Host "  [OK] Python을 설치했습니다." }
+    } else { Write-Host "  [건너뜀] Python 없이도 위키는 쓸 수 있습니다. 나중에 설치하려면:  winget install Python.Python.3.12" }
   }
-  foreach ($g in @(Get-Command py -CommandType Application -ErrorAction SilentlyContinue)) { [void]$cands.Add(@{ Exe = $g.Source; Pre = @("-3") }) }
-  foreach ($c in $cands) {
-    $exe = $c.Exe; $pre = [string[]]$c.Pre
-    $r = Invoke-Quiet $exe ($pre + @("-c", "import sys; print(sys.version_info[0])"))
-    if ($r.Ok -and $r.Out -match '3$') { $Py = $exe; $PyArgs = $pre; break }
-    if ($exe -like "*\WindowsApps\*") { $StoreStub = $true }
-  }
-  if ($Py) {
-    $PyName = if ($PyArgs.Count -gt 0) { "py -3" } else { "python" }
-    if ((Invoke-Quiet $Py ($PyArgs + @("-c", "import pypdf"))).Ok) { Write-Host "  [OK] Python, PDF 읽기 도구" }
-    else { Write-Host "  [선택] PDF를 쪽 번호와 함께 읽으려면:  $PyName -m pip install --user pypdf" }
-  } else {
-    Write-Host "  [선택] Python이 없습니다. 위키는 Python 없이도 쓸 수 있습니다."
-    Write-Host "         PDF·PPT를 쪽/슬라이드 번호와 함께 읽고 싶을 때만 설치하세요:  winget install Python.Python.3.12"
-    if ($StoreStub) { Write-Host "         (지금 보이는 python은 Microsoft Store 바로가기라서 실제 Python이 아닙니다.)" }
+  if ($P.Exe) {
+    $PyName = if ($P.Pre.Count -gt 0) { "py -3" } else { "python" }
+    if ((Invoke-Quiet $P.Exe ($P.Pre + @("-c", "import pypdf"))).Ok) { Write-Host "  [OK] Python, PDF 읽기 도구" }
+    elseif (AskYes "  PDF 읽기 도구(pypdf, 약 1MB)를 설치할까요?" $env:LLM_WIKI_INSTALL_DEPS) {
+      [void](Invoke-Quiet $P.Exe ($P.Pre + @("-m", "pip", "install", "--user", "--quiet", "--disable-pip-version-check", "pypdf")))
+      if ((Invoke-Quiet $P.Exe ($P.Pre + @("-c", "import pypdf"))).Ok) { Write-Host "  [OK] PDF 읽기 도구를 설치했습니다." }
+      else { Write-Host "  [안내] 자동 설치에 실패했습니다. 나중에:  $PyName -m pip install --user pypdf" }
+    } else { Write-Host "  [건너뜀] 나중에 설치하려면:  $PyName -m pip install --user pypdf" }
   }
 } catch { Write-Host "  [안내] Python 확인을 건너뜁니다. (위키 사용에는 지장이 없습니다.)" }
 if (Get-Command codex -ErrorAction SilentlyContinue) { Write-Host "  [OK] Codex CLI" }
 else { Write-Host "  [안내] Codex CLI가 없습니다. ChatGPT 데스크톱 앱의 Codex나 VS Code 확장으로도 쓸 수 있습니다." }
+
+# ---------------------------------------------------------------- 예시 자료 (선택)
+# 파일은 이 키트에 들어 있지 않고, 원 출처(arXiv, MIT OpenCourseWare)에서 사용자 PC로 직접 받는다.
+$GotExamples = 0
+if ($ExampleRows.Count -gt 0) {
+  $What = if ($Edition -eq "study") { "MIT OpenCourseWare 인공지능 강의자료 $($ExampleRows.Count)개" } else { "검색 증강 생성(RAG) 분야 공개 논문 $($ExampleRows.Count)편" }
+  Write-Host "`n예시 자료"
+  if (AskYes "  바로 시험해 볼 수 있게 예시 자료($What, 약 10MB)를 받아 둘까요?" $env:LLM_WIKI_EXAMPLES) {
+    $Lines = @("# 예시 자료 출처", "", "설치할 때 아래 원 출처에서 이 PC로 직접 내려받은 자료입니다. 개인 학습·연구 체험용으로만 쓰고, 다시 배포할 때는 각 라이선스를 따르세요.", "")
+    foreach ($r in $ExampleRows) {
+      try {
+        $Dir = Join-Path $Dest ($r.Dir -replace '/', '\')
+        New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+        $Out = Join-Path $Dir $r.File
+        Invoke-WebRequest -UseBasicParsing -UserAgent "llm-wiki-kit-installer" $r.Url -OutFile $Out
+        if ((Get-Item $Out).Length -gt 10000) { Write-Host "  [OK] $($r.Dir)/$($r.File)"; $GotExamples++ }
+        else { Remove-Item $Out -Force; throw "too small" }
+        $Lines += @("- **$($r.Dir)/$($r.File)**: $($r.Title)", "  - 저자·출처: $($r.Credit)", "  - 원본: $($r.Url)", "  - 라이선스: $($r.License)")
+      } catch { Write-Host "  [안내] 받지 못했습니다: $($r.File) ($($r.Url))" }
+    }
+    if ($GotExamples -gt 0) { [IO.File]::WriteAllLines((Join-Path $Dest "예시 자료 출처.md"), $Lines, (New-Object Text.UTF8Encoding $false)) }
+  }
+}
 
 if ($Edition -eq "study") {
   $Put = "강의자료는 $Dest\raw\lectures\<과목>\ , 교재는 $Dest\raw\textbooks\"
@@ -147,6 +233,7 @@ if ($Edition -eq "study") {
   $Put = "논문 PDF는 $Dest\raw\papers\"
   $Next = "`$wiki-compare   <- 선행연구 비교표,   `$wiki-novelty <- 아이디어 중복 확인"
 }
+if ($GotExamples -gt 0) { $Put = "(예시 자료가 이미 들어 있으니 이 단계는 건너뛰어도 됩니다.) $Put" }
 Write-Host @"
 
 설치 완료 ($Label): $Dest
@@ -162,5 +249,9 @@ Write-Host @"
   4. Obsidian 사용법: $Dest\Obsidian 사용법.md
 
 "@
-if (-not $env:LLM_WIKI_NO_OPEN -and $Obsidian -ne "yes") { Start-Process explorer.exe $Dest }
+if (-not $env:LLM_WIKI_NO_OPEN) {
+  if ($Obsidian -eq "yes" -and $ObsExe -and $Full) {
+    Start-Process ("obsidian://open?path=" + [uri]::EscapeDataString((Join-Path $Full "wiki\index.md")))
+  } else { Start-Process explorer.exe $Dest }
+}
 }

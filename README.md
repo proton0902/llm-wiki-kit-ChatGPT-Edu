@@ -22,7 +22,11 @@ ChatGPT Edu의 **Codex**가 논문, 강의자료, 교재를 읽고, 요약하고
 
 ## 설치
 
-설치 명령을 실행하면 판을 고르고 Obsidian을 함께 설치할지 묻습니다. 기존 폴더는 덮어쓰지 않습니다.
+설치 명령을 실행하면 판을 고른 뒤, 아래 세 가지를 하나씩 **동의를 묻고** 진행합니다. 모두 Enter(예)만 누르면 끝납니다. 기존 폴더는 덮어쓰지 않습니다.
+
+- **Obsidian**(위키 그래프 보기): 없으면 설치(Windows는 winget 또는 공식 설치 파일, Mac은 Homebrew 또는 공식 dmg)하고 보관소로 등록해 엽니다.
+- **Python + pypdf**(PDF를 쪽 번호와 함께 읽기): 없으면 설치합니다. 거절해도 위키는 그대로 쓸 수 있습니다.
+- **예시 자료**: 빈 위키를 바로 시험해 볼 수 있게 공개 자료를 원 출처에서 받아 둡니다. ([목록과 라이선스](#예시-자료))
 
 ### macOS / Linux (터미널)
 
@@ -33,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/proton0902/llm-wiki-kit-ChatGPT-Edu
 # 학습용 → ~/Study-Wiki
 curl -fsSL https://raw.githubusercontent.com/proton0902/llm-wiki-kit-ChatGPT-Edu/main/install.sh | bash -s -- --study
 ```
-Obsidian 설치(Homebrew가 있을 때)와 보관소 등록까지 한 번에 하려면 끝에 `--with-obsidian`, 다른 위치에 만들려면 경로를 붙이세요. 예: `... | bash -s -- --study --with-obsidian ~/Documents/회로이론`
+질문 없이 Obsidian까지 하려면 끝에 `--with-obsidian`, 다른 위치에 만들려면 경로를 붙이세요. 예: `... | bash -s -- --study --with-obsidian ~/Documents/회로이론`
 
 ### Windows (PowerShell)
 
@@ -44,7 +48,7 @@ irm https://raw.githubusercontent.com/proton0902/llm-wiki-kit-ChatGPT-Edu/main/i
 # 학습용 → C:\Users\<이름>\Study-Wiki
 irm https://raw.githubusercontent.com/proton0902/llm-wiki-kit-ChatGPT-Edu/main/install-study.ps1 | iex
 ```
-Obsidian 질문에 "y"라고 하면 winget으로 설치하고 보관소로 등록해 바로 엽니다.
+질문을 미리 정해 두려면 `$env:LLM_WIKI_OBSIDIAN`, `$env:LLM_WIKI_INSTALL_DEPS`, `$env:LLM_WIKI_EXAMPLES`를 `"yes"` 또는 `"no"`로 설정하세요. (macOS/Linux도 같은 이름의 환경 변수를 씁니다.)
 
 ### 터미널 없이
 1. [ZIP 다운로드](https://github.com/proton0902/llm-wiki-kit-ChatGPT-Edu/archive/refs/heads/main.zip) 후 압축을 풉니다.
@@ -54,6 +58,17 @@ Obsidian 질문에 "y"라고 하면 winget으로 설치하고 보관소로 등�
 ```
 https://github.com/proton0902/llm-wiki-kit-ChatGPT-Edu 의 README를 읽고, 학습용 위키를 내 홈 폴더에 설치해줘.
 ```
+
+### 예시 자료
+
+설치 중 "예시 자료를 받아 둘까요?"에 예라고 하면 아래 파일을 **원 출처에서 내 PC로 직접** 받습니다. 이 저장소에는 파일이 들어 있지 않고 목록([`examples/`](examples/))만 있습니다. 받은 뒤에는 위키 폴더의 `예시 자료 출처.md`에 저자, 원본 주소, 라이선스가 기록됩니다.
+
+| 판 | 자료 | 저장 위치 | 라이선스 |
+| --- | --- | --- | --- |
+| 연구자용 | 검색 증강 생성(RAG) 서베이 논문 3편 (Gao 외 2023, Huang & Huang 2024, Fan 외 2024), arXiv | `raw/papers/` | arXiv 비독점 배포 라이선스 (arXiv에서 무료 공개) |
+| 학습용 | MIT OpenCourseWare 6.034 Artificial Intelligence (Spring 2005, Kaelbling·Lozano-Pérez) 강의자료 1·4·5장 | `raw/lectures/MIT-6.034-인공지능/` | CC BY-NC-SA 4.0 |
+
+예시로 해보기: Codex에서 `$wiki-ingest`를 입력한 뒤, 연구자용은 "세 서베이가 RAG를 어떻게 분류하는지 비교해줘"나 `$wiki-compare`, 학습용은 "1장에서 말하는 AI의 정의를 쉽게 설명해줘"나 `$wiki-quiz`를 시도해 보세요.
 
 ---
 
